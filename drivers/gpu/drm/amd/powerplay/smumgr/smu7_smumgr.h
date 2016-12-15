@@ -26,6 +26,7 @@
 
 
 #include <pp_endian.h>
+#include "smu_ucode_xfer_vi.h"
 
 #define SMC_RAM_END 0x40000
 
