@@ -1047,6 +1047,7 @@ static int uvd_v6_0_set_powergating_state(void *handle,
 	 * the smc and the hw blocks
 	 */
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+	int ret;
 
 	if (!(adev->pg_flags & AMD_PG_SUPPORT_UVD))
 		return 0;
@@ -1054,11 +1055,31 @@ static int uvd_v6_0_set_powergating_state(void *handle,
 	WREG32(mmUVD_POWER_STATUS, UVD_POWER_STATUS__UVD_PG_EN_MASK);
 
 	if (state == AMD_PG_STATE_GATE) {
+		adev->uvd.is_powergated = true;
 		uvd_v6_0_stop(adev);
-		return 0;
 	} else {
-		return uvd_v6_0_start(adev);
+		ret = uvd_v6_0_start(adev);
+		if (ret)
+			return ret;
+		adev->uvd.is_powergated = false;
 	}
+	return 0;
+}
+
+static void uvd_v6_0_get_clockgating_state(void *handle, u32 *flags)
+{
+	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+	int data;
+
+	if (adev->uvd.is_powergated) {
+		DRM_INFO("Cannot get clockgating state when UVD is powergated.\n");
+		return;
+	}
+
+	/* AMD_CG_SUPPORT_UVD_MGCG */
+	data = RREG32(mmUVD_CGC_CTRL);
+	if (data & UVD_CGC_CTRL__DYN_CLOCK_MODE_MASK)
+		*flags |= AMD_CG_SUPPORT_UVD_MGCG;
 }
 
 static const struct amd_ip_funcs uvd_v6_0_ip_funcs = {
@@ -1079,6 +1100,7 @@ static const struct amd_ip_funcs uvd_v6_0_ip_funcs = {
 	.post_soft_reset = uvd_v6_0_post_soft_reset,
 	.set_clockgating_state = uvd_v6_0_set_clockgating_state,
 	.set_powergating_state = uvd_v6_0_set_powergating_state,
+	.get_clockgating_state = uvd_v6_0_get_clockgating_state,
 };
 
 static const struct amdgpu_ring_funcs uvd_v6_0_ring_phys_funcs = {
