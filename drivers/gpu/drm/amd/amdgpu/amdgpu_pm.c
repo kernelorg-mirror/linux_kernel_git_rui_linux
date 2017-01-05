@@ -34,6 +34,28 @@
 
 static int amdgpu_debugfs_pm_init(struct amdgpu_device *adev);
 
+static const struct cg_flag_name clocks[] = {
+	{AMD_CG_SUPPORT_GFX_MGCG, "Medium Grain Clock Gating"},
+	{AMD_CG_SUPPORT_GFX_MGLS, "Medium Grain memory Light Sleep"},
+	{AMD_CG_SUPPORT_GFX_CGCG, "Coarse Grain Clock Gating"},
+	{AMD_CG_SUPPORT_GFX_CGLS, "Coarse Grain memory Light Sleep"},
+	{AMD_CG_SUPPORT_GFX_CGTS, "Coarse Grain Tree Shader Light Sleep"},
+	{AMD_CG_SUPPORT_GFX_CGTS_LS, "Coarse Grain Tree Shader Light Sleep"},
+	{AMD_CG_SUPPORT_GFX_CP_LS, "Command Processor Light Sleep"},
+	{AMD_CG_SUPPORT_GFX_RLC_LS, "Run List Controller Light Sleep"},
+	{AMD_CG_SUPPORT_MC_LS, "Memory Controller Light Sleep"},
+	{AMD_CG_SUPPORT_MC_MGCG, "Memory Controller Medium Grain Clock Gating"},
+	{AMD_CG_SUPPORT_SDMA_LS, "System Direct Memory Access Light Sleep"},
+	{AMD_CG_SUPPORT_SDMA_MGCG, "System Direct Memory Access Medium Grain Clock Gating"},
+	{AMD_CG_SUPPORT_BIF_LS, "Bus Interface Light Sleep"},
+	{AMD_CG_SUPPORT_UVD_MGCG, "Universal Video Decoder Medium Grain Clock Gating"},
+	{AMD_CG_SUPPORT_VCE_MGCG, "Video Coding Engine Medium Grain Clock Gating"},
+	{AMD_CG_SUPPORT_HDP_LS, "Host Data Path Light Sleep"},
+	{AMD_CG_SUPPORT_HDP_MGCG, "Host Data Path Medium Grain Clock Gating"},
+	{AMD_CG_SUPPORT_ROM_MGCG, "Rom Medium Grain Clock Gating"},
+	{0, NULL},
+};
+
 void amdgpu_pm_acpi_event_handler(struct amdgpu_device *adev)
 {
 	if (adev->pp_enabled)
@@ -1359,6 +1381,15 @@ static int amdgpu_debugfs_pm_info_pp(struct seq_file *m, struct amdgpu_device *a
 	return 0;
 }
 
+static void amdgpu_parse_cg_state(struct seq_file *m, u32 flags)
+{
+	int i;
+
+	for (i = 0; clocks[i].flag; i++)
+		seq_printf(m, "\t%s: %s\n", clocks[i].name,
+			   (flags & clocks[i].flag) ? "On" : "Off");
+}
+
 static int amdgpu_debugfs_pm_info(struct seq_file *m, void *data)
 {
 	struct drm_info_node *node = (struct drm_info_node *) m->private;
@@ -1369,6 +1400,8 @@ static int amdgpu_debugfs_pm_info(struct seq_file *m, void *data)
 
 	amdgpu_get_clockgating_state(adev, &flags);
 	seq_printf(m, "Clock Gating Flags Mask: 0x%x\n", flags);
+	amdgpu_parse_cg_state(m, flags);
+	seq_printf(m, "\n");
 
 	if (!adev->pm.dpm_enabled) {
 		seq_printf(m, "dpm not enabled\n");
