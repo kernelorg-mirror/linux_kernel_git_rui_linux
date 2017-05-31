@@ -63,6 +63,25 @@ static void mmhub_v1_0_init_gart_pt_regs(struct amdgpu_device *adev)
 	       upper_32_bits(value));
 }
 
+static void mmhub_v1_0_init_gart_aperture_regs(struct amdgpu_device *adev)
+{
+	mmhub_v1_0_init_gart_pt_regs(adev);
+
+	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
+				mmVM_CONTEXT0_PAGE_TABLE_START_ADDR_LO32),
+		(u32)(adev->mc.gtt_start >> 12));
+	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
+				mmVM_CONTEXT0_PAGE_TABLE_START_ADDR_HI32),
+		(u32)(adev->mc.gtt_start >> 44));
+
+	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
+				mmVM_CONTEXT0_PAGE_TABLE_END_ADDR_LO32),
+		(u32)(adev->mc.gtt_end >> 12));
+	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
+				mmVM_CONTEXT0_PAGE_TABLE_END_ADDR_HI32),
+		(u32)(adev->mc.gtt_end >> 44));
+}
+
 int mmhub_v1_0_gart_enable(struct amdgpu_device *adev)
 {
 	u32 tmp;
@@ -71,7 +90,7 @@ int mmhub_v1_0_gart_enable(struct amdgpu_device *adev)
 	u32 i;
 
 	/* Program MC. */
-	mmhub_v1_0_init_gart_pt_regs(adev);
+	mmhub_v1_0_init_gart_aperture_regs(adev);
 
 	/* Update configuration */
 	DRM_INFO("%s -- in\n", __func__);
@@ -173,21 +192,6 @@ int mmhub_v1_0_gart_enable(struct amdgpu_device *adev)
 			    VMC_TAP_PTE_REQUEST_PHYSICAL,
 			    0);
 	WREG32(SOC15_REG_OFFSET(MMHUB, 0, mmVM_L2_CNTL4), tmp);
-
-	/* setup context0 */
-	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
-				mmVM_CONTEXT0_PAGE_TABLE_START_ADDR_LO32),
-		(u32)(adev->mc.gtt_start >> 12));
-	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
-				mmVM_CONTEXT0_PAGE_TABLE_START_ADDR_HI32),
-		(u32)(adev->mc.gtt_start >> 44));
-
-	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
-				mmVM_CONTEXT0_PAGE_TABLE_END_ADDR_LO32),
-		(u32)(adev->mc.gtt_end >> 12));
-	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
-				mmVM_CONTEXT0_PAGE_TABLE_END_ADDR_HI32),
-		(u32)(adev->mc.gtt_end >> 44));
 
 	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
 				mmVM_L2_PROTECTION_FAULT_DEFAULT_ADDR_LO32),
