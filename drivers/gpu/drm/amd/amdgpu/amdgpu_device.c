@@ -3633,7 +3633,7 @@ void amdgpu_debugfs_cleanup(struct drm_minor *minor)
 {
 }
 #else
-static int amdgpu_debugfs_test_ib_init(struct amdgpu_device *adev)
+static int amdgpu_debugfs_test_ib_ring_init(struct amdgpu_device *adev)
 {
 	return 0;
 }
