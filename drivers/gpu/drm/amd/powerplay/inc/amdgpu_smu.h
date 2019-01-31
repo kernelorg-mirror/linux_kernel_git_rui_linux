@@ -384,6 +384,7 @@ struct smu_context
 	uint32_t pstate_sclk;
 	uint32_t pstate_mclk;
 
+	bool od_enabled;
 	uint32_t power_limit;
 	uint32_t default_power_limit;
 
@@ -399,6 +400,8 @@ struct smu_context
 	uint32_t workload_setting[WORKLOAD_POLICY_MAX];
 	uint32_t power_profile_mode;
 	uint32_t default_power_profile_mode;
+
+	uint32_t feature_mask;
 };
 
 struct pptable_funcs {

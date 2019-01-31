@@ -290,6 +290,9 @@ static int smu_set_funcs(struct amdgpu_device *adev)
 
 	switch (adev->asic_type) {
 	case CHIP_VEGA20:
+		smu->feature_mask &= ~PP_GFXOFF_MASK;
+		if (smu->feature_mask & PP_OVERDRIVE_MASK)
+			smu->od_enabled = true;
 		smu_v11_0_set_smu_funcs(smu);
 		break;
 	default:
@@ -306,6 +309,7 @@ static int smu_early_init(void *handle)
 
 	smu->adev = adev;
 	mutex_init(&smu->mutex);
+	smu->feature_mask = adev->pp_feature;
 
 	return smu_set_funcs(adev);
 }
