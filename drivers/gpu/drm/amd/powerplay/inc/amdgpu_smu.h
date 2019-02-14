@@ -336,7 +336,6 @@ struct smu_power_context {
 	uint32_t power_context_size;
 };
 
-
 #define SMU_FEATURE_MAX	(64)
 struct smu_feature
 {
@@ -487,6 +486,7 @@ struct smu_funcs
 	int (*init_display)(struct smu_context *smu);
 	int (*set_allowed_mask)(struct smu_context *smu);
 	int (*get_enabled_mask)(struct smu_context *smu, uint32_t *feature_mask, uint32_t num);
+	bool (*is_dpm_running)(struct smu_context *smu);
 	int (*enable_all_mask)(struct smu_context *smu);
 	int (*disable_all_mask)(struct smu_context *smu);
 	int (*update_feature_enable_state)(struct smu_context *smu, uint32_t feature_id, bool enabled);
@@ -612,6 +612,8 @@ struct smu_funcs
 	((smu)->funcs->set_allowed_mask? (smu)->funcs->set_allowed_mask((smu)) : 0)
 #define smu_feature_get_enabled_mask(smu, mask, num) \
 	((smu)->funcs->get_enabled_mask? (smu)->funcs->get_enabled_mask((smu), (mask), (num)) : 0)
+#define smu_is_dpm_running(smu) \
+	((smu)->funcs->is_dpm_running ? (smu)->funcs->is_dpm_running((smu)) : 0)
 #define smu_feature_enable_all(smu) \
 	((smu)->funcs->enable_all_mask? (smu)->funcs->enable_all_mask((smu)) : 0)
 #define smu_feature_disable_all(smu) \
