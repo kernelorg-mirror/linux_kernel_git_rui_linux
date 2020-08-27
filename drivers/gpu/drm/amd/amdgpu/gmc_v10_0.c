@@ -677,7 +677,8 @@ static void gmc_v10_0_vram_gtt_location(struct amdgpu_device *adev,
 	u64 base = 0;
 
 	if (adev->asic_type == CHIP_SIENNA_CICHLID ||
-	    adev->asic_type == CHIP_NAVY_FLOUNDER)
+	    adev->asic_type == CHIP_NAVY_FLOUNDER ||
+	    adev->asic_type == CHIP_VANGOGH)
 		base = gfxhub_v2_1_get_fb_location(adev);
 	else
 		base = gfxhub_v2_0_get_fb_location(adev);
@@ -690,7 +691,8 @@ static void gmc_v10_0_vram_gtt_location(struct amdgpu_device *adev,
 
 	/* base offset of vram pages */
 	if (adev->asic_type == CHIP_SIENNA_CICHLID ||
-	    adev->asic_type == CHIP_NAVY_FLOUNDER)
+	    adev->asic_type == CHIP_NAVY_FLOUNDER ||
+	    adev->asic_type == CHIP_VANGOGH)
 		adev->vm_manager.vram_base_offset = gfxhub_v2_1_get_mc_fb_offset(adev);
 	else
 		adev->vm_manager.vram_base_offset = gfxhub_v2_0_get_mc_fb_offset(adev);
@@ -726,6 +728,13 @@ static int gmc_v10_0_mc_init(struct amdgpu_device *adev)
 	adev->gmc.aper_base = pci_resource_start(adev->pdev, 0);
 	adev->gmc.aper_size = pci_resource_len(adev->pdev, 0);
 
+#ifdef CONFIG_X86_64
+	if (adev->flags & AMD_IS_APU) {
+		adev->gmc.aper_base = gfxhub_v2_1_get_mc_fb_offset(adev);
+		adev->gmc.aper_size = adev->gmc.real_vram_size;
+	}
+#endif
+
 	/* In case the PCI BAR is larger than the actual amount of vram */
 	adev->gmc.visible_vram_size = adev->gmc.aper_size;
 	if (adev->gmc.visible_vram_size > adev->gmc.real_vram_size)
@@ -739,6 +748,7 @@ static int gmc_v10_0_mc_init(struct amdgpu_device *adev)
 		case CHIP_NAVI12:
 		case CHIP_SIENNA_CICHLID:
 		case CHIP_NAVY_FLOUNDER:
+		case CHIP_VANGOGH:
 		default:
 			adev->gmc.gart_size = 512ULL << 20;
 			break;
@@ -778,7 +788,8 @@ static int gmc_v10_0_sw_init(void *handle)
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 
 	if (adev->asic_type == CHIP_SIENNA_CICHLID ||
-	    adev->asic_type == CHIP_NAVY_FLOUNDER)
+	    adev->asic_type == CHIP_NAVY_FLOUNDER ||
+	    adev->asic_type == CHIP_VANGOGH)
 		gfxhub_v2_1_init(adev);
 	else
 		gfxhub_v2_0_init(adev);
@@ -787,7 +798,10 @@ static int gmc_v10_0_sw_init(void *handle)
 
 	spin_lock_init(&adev->gmc.invalidate_lock);
 
-	if (adev->asic_type == CHIP_SIENNA_CICHLID && amdgpu_emu_mode == 1) {
+	if ((adev->flags & AMD_IS_APU) && amdgpu_emu_mode == 1) {
+		adev->gmc.vram_type = AMDGPU_VRAM_TYPE_DDR4;
+		adev->gmc.vram_width = 64;
+	} else if (amdgpu_emu_mode == 1) {
 		adev->gmc.vram_type = AMDGPU_VRAM_TYPE_GDDR6;
 		adev->gmc.vram_width = 1 * 128; /* numchan * chansize */
 	} else {
@@ -805,6 +819,7 @@ static int gmc_v10_0_sw_init(void *handle)
 	case CHIP_NAVI12:
 	case CHIP_SIENNA_CICHLID:
 	case CHIP_NAVY_FLOUNDER:
+	case CHIP_VANGOGH:
 		adev->num_vmhubs = 2;
 		/*
 		 * To fulfill 4-level page support,
@@ -918,6 +933,7 @@ static void gmc_v10_0_init_golden_registers(struct amdgpu_device *adev)
 	case CHIP_NAVI12:
 	case CHIP_SIENNA_CICHLID:
 	case CHIP_NAVY_FLOUNDER:
+	case CHIP_VANGOGH:
 		break;
 	default:
 		break;
@@ -945,7 +961,8 @@ static int gmc_v10_0_gart_enable(struct amdgpu_device *adev)
 		return r;
 
 	if (adev->asic_type == CHIP_SIENNA_CICHLID ||
-	    adev->asic_type == CHIP_NAVY_FLOUNDER)
+	    adev->asic_type == CHIP_NAVY_FLOUNDER ||
+	    adev->asic_type == CHIP_VANGOGH)
 		r = gfxhub_v2_1_gart_enable(adev);
 	else
 		r = gfxhub_v2_0_gart_enable(adev);
@@ -970,7 +987,8 @@ static int gmc_v10_0_gart_enable(struct amdgpu_device *adev)
 		false : true;
 
 	if (adev->asic_type == CHIP_SIENNA_CICHLID ||
-	    adev->asic_type == CHIP_NAVY_FLOUNDER)
+	    adev->asic_type == CHIP_NAVY_FLOUNDER ||
+	    adev->asic_type == CHIP_VANGOGH)
 		gfxhub_v2_1_set_fault_enable_default(adev, value);
 	else
 		gfxhub_v2_0_set_fault_enable_default(adev, value);
@@ -1015,7 +1033,8 @@ static int gmc_v10_0_hw_init(void *handle)
 static void gmc_v10_0_gart_disable(struct amdgpu_device *adev)
 {
 	if (adev->asic_type == CHIP_SIENNA_CICHLID ||
-	    adev->asic_type == CHIP_NAVY_FLOUNDER)
+	    adev->asic_type == CHIP_NAVY_FLOUNDER ||
+	    adev->asic_type == CHIP_VANGOGH)
 		gfxhub_v2_1_gart_disable(adev);
 	else
 		gfxhub_v2_0_gart_disable(adev);
