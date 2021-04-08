@@ -1170,3 +1170,25 @@ void set_dr_addr_mask(unsigned long mask, int dr)
 		break;
 	}
 }
+
+u32 amd_get_highest_perf(void)
+{
+	struct cpuinfo_x86 *c = &boot_cpu_data;
+	u32 cppc_max_perf = 225;
+
+	switch (c->x86) {
+	case 0x17:
+		if ((c->x86_model >= 0x30 && c->x86_model < 0x40) ||
+		    (c->x86_model >= 0x70 && c->x86_model < 0x80))
+			cppc_max_perf = 166;
+		break;
+	case 0x19:
+		if ((c->x86_model >= 0x20 && c->x86_model < 0x30) ||
+		    (c->x86_model >= 0x40 && c->x86_model < 0x70))
+			cppc_max_perf = 166;
+		break;
+	}
+
+	return cppc_max_perf;
+}
+EXPORT_SYMBOL_GPL(amd_get_highest_perf);

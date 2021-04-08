@@ -1107,8 +1107,12 @@ int cppc_get_perf_caps(int cpunum, struct cppc_perf_caps *perf_caps)
 		}
 	}
 
-	cpc_read(cpunum, highest_reg, &high);
-	perf_caps->highest_perf = high;
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD) {
+		perf_caps->highest_perf = amd_get_highest_perf();
+	} else {
+		cpc_read(cpunum, highest_reg, &high);
+		perf_caps->highest_perf = high;
+	}
 
 	cpc_read(cpunum, lowest_reg, &low);
 	perf_caps->lowest_perf = low;
