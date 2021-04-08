@@ -630,6 +630,44 @@ static int acpi_cpufreq_blacklist(struct cpuinfo_x86 *c)
 #endif
 
 #ifdef CONFIG_ACPI_CPPC_LIB
+
+static u64 get_amd_max_boost_ratio(unsigned int cpu, u64 nominal_perf)
+{
+	u64 boost_ratio, cppc_max_perf;
+
+	if (!nominal_perf)
+		return 0;
+
+	switch (boot_cpu_data.x86) {
+	case 0x17:
+		if ((boot_cpu_data.x86_model >= 0x30 &&
+		     boot_cpu_data.x86_model < 0x40) ||
+		    (boot_cpu_data.x86_model >= 0x70 &&
+		     boot_cpu_data.x86_model < 0x80))
+			cppc_max_perf = 166;
+		else
+			cppc_max_perf = 255;
+		break;
+	case 0x19:
+		if ((boot_cpu_data.x86_model >= 0x20 &&
+		     boot_cpu_data.x86_model < 0x30) ||
+		    (boot_cpu_data.x86_model >= 0x40 &&
+		     boot_cpu_data.x86_model < 0x70))
+			cppc_max_perf = 166;
+		else
+			cppc_max_perf = 255;
+		break;
+	default:
+		cppc_max_perf = 255;
+		break;
+	}
+
+	boost_ratio = div_u64(cppc_max_perf << SCHED_CAPACITY_SHIFT,
+			      nominal_perf);
+
+	return boost_ratio;
+}
+
 static u64 get_max_boost_ratio(unsigned int cpu)
 {
 	struct cppc_perf_caps perf_caps;
@@ -645,6 +683,9 @@ static u64 get_max_boost_ratio(unsigned int cpu)
 			 cpu, ret);
 		return 0;
 	}
+
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD)
+		return get_amd_max_boost_ratio(cpu, perf_caps.nominal_perf);
 
 	highest_perf = perf_caps.highest_perf;
 	nominal_perf = perf_caps.nominal_perf;
