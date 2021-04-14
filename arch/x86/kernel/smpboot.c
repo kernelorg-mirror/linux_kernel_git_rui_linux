@@ -2033,6 +2033,37 @@ out:
 }
 
 #ifdef CONFIG_ACPI_CPPC_LIB
+static u64 amd_get_highest_perf(void)
+{
+	u64 cppc_max_perf;
+
+	switch (boot_cpu_data.x86) {
+	case 0x17:
+		if ((boot_cpu_data.x86_model >= 0x30 &&
+		     boot_cpu_data.x86_model < 0x40) ||
+		    (boot_cpu_data.x86_model >= 0x70 &&
+		     boot_cpu_data.x86_model < 0x80))
+			cppc_max_perf = 166;
+		else
+			cppc_max_perf = 255;
+		break;
+	case 0x19:
+		if ((boot_cpu_data.x86_model >= 0x20 &&
+		     boot_cpu_data.x86_model < 0x30) ||
+		    (boot_cpu_data.x86_model >= 0x40 &&
+		     boot_cpu_data.x86_model < 0x70))
+			cppc_max_perf = 166;
+		else
+			cppc_max_perf = 255;
+		break;
+	default:
+		cppc_max_perf = 255;
+		break;
+	}
+
+	return cppc_max_perf;
+}
+
 static bool amd_set_max_freq_ratio(void)
 {
 	struct cppc_perf_caps perf_caps;
@@ -2046,8 +2077,8 @@ static bool amd_set_max_freq_ratio(void)
 		return false;
 	}
 
-	highest_perf = perf_caps.highest_perf;
 	nominal_perf = perf_caps.nominal_perf;
+	highest_perf = amd_get_highest_perf();
 
 	if (!highest_perf || !nominal_perf) {
 		pr_debug("Could not retrieve highest or nominal performance\n");
