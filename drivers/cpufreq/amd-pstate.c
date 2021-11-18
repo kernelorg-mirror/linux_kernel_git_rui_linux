@@ -68,6 +68,9 @@ struct amd_cpudata {
 	u32	nominal_freq;
 	u32	lowest_nonlinear_freq;
 
+	unsigned int acpi_freq[3];
+	struct acpi_processor_performance perf;
+
 	bool	boost_supported;
 };
 
@@ -229,6 +232,15 @@ static int amd_pstate_target(struct cpufreq_policy *policy,
 	freqs.old = policy->cur;
 	freqs.new = target_freq;
 
+	if (cpudata->acpi_freq[0] + (cpudata->acpi_freq[0] - cpudata->acpi_freq[1]) / 2 <= target_freq)
+		target_freq = cpudata->max_freq;
+	else if (cpudata->acpi_freq[1] + (cpudata->acpi_freq[0] - cpudata->acpi_freq[1]) / 2 <= target_freq)
+		target_freq = cpudata->acpi_freq[0];
+	else if (cpudata->acpi_freq[2] + (cpudata->acpi_freq[1] - cpudata->acpi_freq[2]) / 2 <= target_freq)
+		target_freq = cpudata->acpi_freq[1];
+	else
+		target_freq = cpudata->acpi_freq[2];
+
 	des_perf = DIV_ROUND_CLOSEST(target_freq * cap_perf,
 				     cpudata->max_freq);
 
@@ -385,9 +397,10 @@ static void amd_pstate_boost_init(struct amd_cpudata *cpudata)
 
 static int amd_pstate_cpu_init(struct cpufreq_policy *policy)
 {
-	int min_freq, max_freq, nominal_freq, lowest_nonlinear_freq, ret;
+	int min_freq, max_freq, nominal_freq, lowest_nonlinear_freq, ret, i;
 	struct device *dev;
 	struct amd_cpudata *cpudata;
+	struct acpi_processor_performance *perf;
 
 	dev = get_cpu_device(policy->cpu);
 	if (!dev)
@@ -450,12 +463,24 @@ static int amd_pstate_cpu_init(struct cpufreq_policy *policy)
 	cpudata->nominal_freq = nominal_freq;
 	cpudata->lowest_nonlinear_freq = lowest_nonlinear_freq;
 
+	perf = &cpudata->perf;
+
+	ret = acpi_processor_register_performance(perf, policy->cpu);
+	if (ret)
+		goto free_cpudata3;
+
+	for (i = 0; i < perf->state_count; i++) {
+		cpudata->acpi_freq[i] = perf->states[i].core_frequency * 1000;
+	}
+
 	policy->driver_data = cpudata;
 
 	amd_pstate_boost_init(cpudata);
 
 	return 0;
 
+free_cpudata3:
+	freq_qos_remove_request(&cpudata->req[1]);
 free_cpudata2:
 	freq_qos_remove_request(&cpudata->req[0]);
 free_cpudata1:
