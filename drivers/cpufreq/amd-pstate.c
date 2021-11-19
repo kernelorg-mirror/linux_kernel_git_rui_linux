@@ -437,6 +437,18 @@ static int amd_pstate_cpu_init(struct cpufreq_policy *policy)
 
 	policy->cpuinfo.max_freq = max_freq;
 
+	perf = &cpudata->perf;
+
+	ret = acpi_processor_register_performance(perf, policy->cpu);
+	if (ret)
+		goto free_cpudata3;
+
+	for (i = 0; i < perf->state_count; i++) {
+		cpudata->acpi_freq[i] = perf->states[i].core_frequency * 1000;
+	}
+
+	policy->cpuinfo.min_freq = cpudata->acpi_freq[2];
+
 	/* It will be updated by governor */
 	policy->cur = policy->cpuinfo.min_freq;
 
@@ -462,18 +474,6 @@ static int amd_pstate_cpu_init(struct cpufreq_policy *policy)
 	cpudata->min_freq = min_freq;
 	cpudata->nominal_freq = nominal_freq;
 	cpudata->lowest_nonlinear_freq = lowest_nonlinear_freq;
-
-	perf = &cpudata->perf;
-
-	ret = acpi_processor_register_performance(perf, policy->cpu);
-	if (ret)
-		goto free_cpudata3;
-
-	for (i = 0; i < perf->state_count; i++) {
-		cpudata->acpi_freq[i] = perf->states[i].core_frequency * 1000;
-	}
-
-	policy->cpuinfo.min_freq = cpudata->acpi_freq[2];
 
 	policy->driver_data = cpudata;
 
