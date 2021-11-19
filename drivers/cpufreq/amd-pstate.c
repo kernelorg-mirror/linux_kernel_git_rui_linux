@@ -230,7 +230,6 @@ static int amd_pstate_target(struct cpufreq_policy *policy,
 	max_perf = cap_perf;
 
 	freqs.old = policy->cur;
-	freqs.new = target_freq;
 
 	if (cpudata->acpi_freq[0] + (cpudata->acpi_freq[0] - cpudata->acpi_freq[1]) / 2 <= target_freq)
 		target_freq = cpudata->max_freq;
@@ -240,6 +239,8 @@ static int amd_pstate_target(struct cpufreq_policy *policy,
 		target_freq = cpudata->acpi_freq[1];
 	else
 		target_freq = cpudata->acpi_freq[2];
+
+	freqs.new = target_freq;
 
 	des_perf = DIV_ROUND_CLOSEST(target_freq * cap_perf,
 				     cpudata->max_freq);
