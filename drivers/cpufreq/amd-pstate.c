@@ -432,7 +432,6 @@ static int amd_pstate_cpu_init(struct cpufreq_policy *policy)
 	policy->cpuinfo.transition_latency = AMD_PSTATE_TRANSITION_LATENCY;
 	policy->transition_delay_us = AMD_PSTATE_TRANSITION_DELAY;
 
-	policy->min = min_freq;
 	policy->max = max_freq;
 
 	policy->cpuinfo.max_freq = max_freq;
@@ -448,6 +447,7 @@ static int amd_pstate_cpu_init(struct cpufreq_policy *policy)
 	}
 
 	policy->cpuinfo.min_freq = cpudata->acpi_freq[2];
+	policy->min = cpudata->acpi_freq[2];
 
 	/* It will be updated by governor */
 	policy->cur = policy->cpuinfo.min_freq;
