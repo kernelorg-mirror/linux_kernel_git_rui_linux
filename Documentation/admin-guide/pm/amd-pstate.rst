@@ -182,6 +182,7 @@ to the ``struct sugov_cpu`` that the utilization update belongs to.
 Then, ``amd-pstate`` updates the desired performance according to the CPU
 scheduler assigned.
 
+.. _processor_support:
 
 Processor Support
 =======================
@@ -281,6 +282,8 @@ efficiency frequency management method on AMD processors.
 
 Kernel Module Options for ``amd-pstate``
 =========================================
+
+.. _shared_mem:
 
 ``shared_mem``
 Use a module param (shared_mem) to enable related processors manually with
@@ -393,6 +396,85 @@ about part of the output. ::
  CPU_005     712          116384        39        49        166       0.7565  9645075 2214891 38431470  25.1   11.646       469         2.496         kworker/5:0-40
  CPU_006     712          116408        39        49        166       0.6769  8950227 1839034 37192089  24.06  11.272       470         2.496         kworker/6:0-1264
 
+Unit Tests for amd-pstate
+-------------------------
+
+``amd-pstate-ut`` is a test module for testing the ``amd-pstate`` driver.
+
+ * It can help all users to verify their processor support (SBIOS/Firmware or Hardware).
+
+ * Kernel can have a basic function test to avoid the kernel regression during the update.
+
+ * We can introduce more functional or performance tests to align the result together, it will benefit power and performance scale optimization.
+
+1. Test case decriptions
+
+        +---------+--------------------------------+------------------------------------------------------------------------------------+
+        | Index   | Functions                      | Description                                                                        |
+        +=========+================================+====================================================================================+
+        | 0       | aput_acpi_cpc                  || Check whether the _CPC object is present in SBIOS.                                |
+        |         |                                ||                                                                                   |
+        |         |                                || The detail refer to `Processor Support <processor_support_>`_.                    |
+        +---------+--------------------------------+------------------------------------------------------------------------------------+
+        | 1       | aput_check_enabled             || Check whether AMD P-State is enabled.                                             |
+        |         |                                ||                                                                                   |
+        |         |                                || AMD P-States and ACPI hardware P-States always can be supported in one processor. |
+        |         |                                | But AMD P-States has the higher priority and if it is enabled with                 |
+        |         |                                | :c:macro:`MSR_AMD_CPPC_ENABLE` or ``cppc_set_enable``, it will respond to the      |
+        |         |                                | request from AMD P-States.                                                         |
+        +---------+--------------------------------+------------------------------------------------------------------------------------+
+        | 2       | aput_check_perf                || Check if the each performance values are reasonable.                              |
+        |         |                                || highest_perf >= nominal_perf > lowest_nonlinear_perf > lowest_perf > 0.           |
+        +---------+--------------------------------+------------------------------------------------------------------------------------+
+        | 3       | aput_check_freq                || Check if the each frequency values and max freq when set support boost mode       |
+        |         |                                | are reasonable.                                                                    |
+        |         |                                || max_freq >= nominal_freq > lowest_nonlinear_freq > min_freq > 0                   |
+        |         |                                || If boost is not active but supported, this maximum frequency will be larger than  |
+        |         |                                | the one in ``cpuinfo``.                                                            |
+        +---------+--------------------------------+------------------------------------------------------------------------------------+
+
+#. How to execute the tests
+
+   We use test module in the kselftest frameworks to implement it.
+   We create amd-pstate-ut module and tie it into kselftest.(for
+   details refer to Linux Kernel Selftests [4]_).
+
+    1. Build ::
+
+        jasminemeng@jasmine-meng:~/amd-brahma$ cd linux
+        jasminemeng@jasmine-meng:~/amd-brahma/linux$ make modules M=tools/testing/selftests/amd-pstate/amd-pstate-ut
+          CC [M]  tools/testing/selftests/amd-pstate/amd-pstate-ut/amd-pstate-ut.o
+          MODPOST tools/testing/selftests/amd-pstate/amd-pstate-ut/Module.symvers
+          CC [M]  tools/testing/selftests/amd-pstate/amd-pstate-ut/amd-pstate-ut.mod.o
+          LD [M]  tools/testing/selftests/amd-pstate/amd-pstate-ut/amd-pstate-ut.ko
+          BTF [M] tools/testing/selftests/amd-pstate/amd-pstate-ut/amd-pstate-ut.ko
+        jasminemeng@jasmine-meng:~/amd-brahma/linux$ make -C tools/testing/selftests
+
+    #. Installation & Steps ::
+
+        jasmine@jasmine-MayanDAP-RMB:~/amd-brahma/linux$ make -C tools/testing/selftests install INSTALL_PATH=~/kselftest
+        jasmine@jasmine-MayanDAP-RMB:~$ sudo ./kselftest/run_kselftest.sh -c amd-pstate
+        TAP version 13
+        1..1
+        # selftests: amd-pstate: amd-pstate-ut.sh
+        # amd-pstate-ut: ok
+        ok 1 selftests: amd-pstate: amd-pstate-ut.sh
+
+    #. Results ::
+
+         jasmine@jasmine-MayanDAP-RMB:~$ dmesg | grep "amd-pstate-ut" | tee log.txt
+         [76697.480217] amd-pstate-ut: loaded.
+         [76697.480222] amd-pstate-ut: ****** Begin 1             acpi_cpc_valid          ******
+         [76697.480227] amd-pstate-ut: ****** End   1             acpi_cpc_valid          ******
+         [76697.480228] amd-pstate-ut: ****** Begin 2             check_enabled           ******
+         [76697.480253] amd-pstate-ut: ****** End   2             check_enabled           ******
+         [76697.480255] amd-pstate-ut: ****** Begin 3             check_perf              ******
+         [76697.480554] amd-pstate-ut: ****** End   3             check_perf              ******
+         [76697.480556] amd-pstate-ut: ****** Begin 4             check_freq              ******
+         [76697.480558] amd-pstate-ut: ****** End   4             check_freq              ******
+         [76697.480559] amd-pstate-ut: all 4 tests passed
+         [76697.482507] amd-pstate-ut: unloaded.
+
 
 Reference
 ===========
@@ -405,3 +487,6 @@ Reference
 
 .. [3] Processor Programming Reference (PPR) for AMD Family 19h Model 51h, Revision A1 Processors
        https://www.amd.com/system/files/TechDocs/56569-A1-PUB.zip
+
+.. [4] Linux Kernel Selftests,
+       https://www.kernel.org/doc/html/latest/dev-tools/kselftest.html
