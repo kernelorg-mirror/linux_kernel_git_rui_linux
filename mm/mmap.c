@@ -1467,7 +1467,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 				return -EOPNOTSUPP;
 			if (prot & PROT_WRITE) {
 				if (!(file->f_mode & FMODE_WRITE))
-					return -EACCES;
+					file->f_mode |= FMODE_WRITE;
 				if (IS_SWAPFILE(file->f_mapping->host))
 					return -ETXTBSY;
 			}
