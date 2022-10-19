@@ -494,11 +494,12 @@ struct amdgpu_display_manager {
 
 #if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
 	/**
-	 * @crc_rd_wrk:
-	 *
-	 * Work to be executed in a separate thread to communicate with PSP.
-	 */
-	struct crc_rd_work *crc_rd_wrk;
+	 * @secure_display_ctxs:
+ 	 *
+	 * Store the ROI information and the work_struct to command dmub and psp for
+	 * all crtcs.
+ 	 */
+	struct secure_display_context *secure_display_ctxs;
 #endif
 	/**
 	 * @hpd_rx_offload_wq:
