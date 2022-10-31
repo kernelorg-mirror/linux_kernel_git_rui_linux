@@ -1680,4 +1680,4 @@ static int __gnttab_init(void)
 }
 /* Starts after core_initcall so that xen_pvh_gnttab_setup can be called
  * beforehand to initialize xen_auto_xlat_grant_frames. */
-core_initcall_sync(__gnttab_init);
+rootfs_initcall(__gnttab_init);

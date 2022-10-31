@@ -165,5 +165,5 @@ static int __init xen_pvh_gnttab_setup(void)
 }
 /* Call it _before_ __gnttab_init as we need to initialize the
  * xen_auto_xlat_grant_frames first. */
-core_initcall(xen_pvh_gnttab_setup);
+fs_initcall_sync(xen_pvh_gnttab_setup);
 #endif
