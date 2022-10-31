@@ -51,6 +51,7 @@
 #include <linux/dma-fence.h>
 #include <linux/pci.h>
 #include <linux/aer.h>
+#include <xen/xen.h>
 
 #include <drm/ttm/ttm_bo_api.h>
 #include <drm/ttm/ttm_bo_driver.h>

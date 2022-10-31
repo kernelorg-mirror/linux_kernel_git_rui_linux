@@ -545,7 +545,7 @@ static int amdgpu_vram_mgr_new(struct ttm_resource_manager *man,
 	if (amdgpu_is_vram_mgr_blocks_contiguous(&vres->blocks))
 		vres->base.placement |= TTM_PL_FLAG_CONTIGUOUS;
 
-	if (adev->gmc.xgmi.connected_to_cpu)
+	if (xen_pv_domain() || adev->gmc.xgmi.connected_to_cpu)
 		vres->base.bus.caching = ttm_cached;
 	else
 		vres->base.bus.caching = ttm_write_combined;

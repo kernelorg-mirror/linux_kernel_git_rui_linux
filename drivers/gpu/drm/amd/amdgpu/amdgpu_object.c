@@ -500,6 +500,9 @@ bool amdgpu_bo_support_uswc(u64 bo_flags)
 			      "better performance thanks to write-combining\n");
 	return false;
 #else
+
+	if (xen_pv_domain())
+		return false;
 	/* For architectures that don't support WC memory,
 	 * mask out the WC flag from the BO
 	 */
