@@ -74,6 +74,12 @@ static inline void __init pci_swiotlb_detect(void)
 #ifdef CONFIG_SWIOTLB_XEN
 static void __init pci_xen_swiotlb_init(void)
 {
+	/* Xen PVH domain won't use swiotlb */
+	if (xen_pvh_domain()) {
+		x86_swiotlb_enable = false;
+		return;
+	}
+
 	if (!xen_initial_domain() && !x86_swiotlb_enable)
 		return;
 	x86_swiotlb_enable = true;
@@ -86,7 +92,7 @@ static void __init pci_xen_swiotlb_init(void)
 
 int pci_xen_swiotlb_init_late(void)
 {
-	if (dma_ops == &xen_swiotlb_dma_ops)
+	if (xen_pvh_domain() || dma_ops == &xen_swiotlb_dma_ops)
 		return 0;
 
 	/* we can work with the default swiotlb */
