@@ -1761,7 +1761,11 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 
 	else
 #endif
-		adev->mman.aper_base_kaddr = ioremap_wc(adev->gmc.aper_base,
+		if (xen_pv_domain())
+			adev->mman.aper_base_kaddr = ioremap_uc(adev->gmc.aper_base,
+				adev->gmc.visible_vram_size);
+		else
+			adev->mman.aper_base_kaddr = ioremap_wc(adev->gmc.aper_base,
 				adev->gmc.visible_vram_size);
 #endif
 
