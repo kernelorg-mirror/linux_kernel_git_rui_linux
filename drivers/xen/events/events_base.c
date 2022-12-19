@@ -2317,6 +2317,8 @@ void __init xen_init_IRQ(void)
 	xen_init_setup_upcall_vector();
 	xen_alloc_callback_vector();
 
+	if (xen_pvh_domain())
+		pci_xen_pvh_init();
 
 	if (xen_hvm_domain()) {
 		native_init_IRQ();
