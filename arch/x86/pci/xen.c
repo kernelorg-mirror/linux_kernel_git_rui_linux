@@ -114,6 +114,38 @@ static int acpi_register_gsi_xen_hvm(struct device *dev, u32 gsi,
 				 false /* no mapping of GSI to PIRQ */);
 }
 
+static int acpi_register_gsi_xen_pvh(struct device *dev, u32 gsi,
+				    int trigger, int polarity)
+{
+	int irq;
+	int rc;
+	struct physdev_map_pirq map_irq;
+	struct physdev_setup_gsi setup_gsi;
+
+	irq = acpi_register_gsi_ioapic(dev, gsi, trigger, polarity);
+
+	map_irq.domid = DOMID_SELF;
+	map_irq.type = MAP_PIRQ_TYPE_GSI;
+	map_irq.index = gsi;
+	map_irq.pirq = gsi;
+
+	rc = HYPERVISOR_physdev_op(PHYSDEVOP_map_pirq, &map_irq);
+	if (rc)
+		printk(KERN_ERR "xen map GSI: %u failed %d\n", gsi, rc);
+
+	setup_gsi.gsi = gsi;
+	setup_gsi.triggering = (trigger == ACPI_EDGE_SENSITIVE ? 0 : 1);
+	setup_gsi.polarity = (polarity == ACPI_ACTIVE_HIGH ? 0 : 1);
+
+	rc = HYPERVISOR_physdev_op(PHYSDEVOP_setup_gsi, &setup_gsi);
+	if (rc == -EEXIST)
+		printk(KERN_INFO "Already setup the GSI :%u\n", gsi);
+	else if (rc)
+		printk(KERN_ERR "Failed to setup GSI :%u, err_code:%d\n", gsi, rc);
+
+	return irq;
+}
+
 #ifdef CONFIG_XEN_PV_DOM0
 static int xen_register_gsi(u32 gsi, int triggering, int polarity)
 {
@@ -551,6 +583,13 @@ int __init pci_xen_hvm_init(void)
 	 */
 	x86_platform.apic_post_init = xen_hvm_msi_init;
 #endif
+	return 0;
+}
+
+int __init pci_xen_pvh_init(void)
+{
+	__acpi_register_gsi = acpi_register_gsi_xen_pvh;
+	__acpi_unregister_gsi = NULL;
 	return 0;
 }
 
