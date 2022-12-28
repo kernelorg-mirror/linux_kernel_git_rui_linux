@@ -37,6 +37,7 @@
 #include "dc_link_dp.h"
 #include "link_hwss.h"
 #include "dc/dc_dmub_srv.h"
+#include "dc/inc/link_dpcd.h"
 
 #ifdef CONFIG_DRM_AMD_SECURE_DISPLAY
 #include "amdgpu_dm_psr.h"
@@ -1192,7 +1193,7 @@ static int dp_dsc_fec_support_show(struct seq_file *m, void *data)
 			break;
 		}
 		dpcd_caps = aconnector->dc_link->dpcd_caps;
-		if (aconnector->port) {
+		if (aconnector->mst_output_port) {
 			/* aconnector sets dsc_aux during get_modes call
 			 * if MST connector has it means it can either
 			 * enable DSC on the sink device or on MST branch
@@ -1279,7 +1280,7 @@ static ssize_t trigger_hotplug(struct file *f, const char __user *buf,
 	mutex_lock(&aconnector->hpd_lock);
 
 	/* Don't support for mst end device*/
-	if (aconnector->mst_port) {
+	if (aconnector->mst_root) {
 		mutex_unlock(&aconnector->hpd_lock);
 		return -EINVAL;
 	}
@@ -2578,13 +2579,13 @@ static int dp_is_mst_connector_show(struct seq_file *m, void *unused)
 
 	if (aconnector->mst_mgr.mst_state) {
 		role = "root";
-	} else if (aconnector->mst_port &&
-		aconnector->mst_port->mst_mgr.mst_state) {
+	} else if (aconnector->mst_root &&
+		aconnector->mst_root->mst_mgr.mst_state) {
 
 		role = "end";
 
-		mgr = &aconnector->mst_port->mst_mgr;
-		port = aconnector->port;
+		mgr = &aconnector->mst_root->mst_mgr;
+		port = aconnector->mst_output_port;
 
 		drm_modeset_lock(&mgr->base.lock, NULL);
 		if (port->pdt == DP_PEER_DEVICE_MST_BRANCHING &&
@@ -3431,12 +3432,21 @@ static int trigger_hpd_mst_set(void *data, u64 val)
 			if (!aconnector->dc_link)
 				continue;
 
-			if (!aconnector->mst_port)
+			if (!aconnector->mst_root)
 				continue;
 
 			link = aconnector->dc_link;
-			dp_receiver_power_ctrl(link, false);
-			drm_dp_mst_topology_mgr_set_mst(&aconnector->mst_port->mst_mgr, false);
+
+			/*
+			 * This is a workaround before we have dc_link_dp_receiver_power_ctrl()
+			 * to use.
+			 */
+			if (!link->sync_lt_in_progress) {
+				uint8_t state = false;
+				core_link_write_dpcd(link, DP_SET_POWER, &state, sizeof(state));
+			}
+
+			drm_dp_mst_topology_mgr_set_mst(&aconnector->mst_root->mst_mgr, false);
 			link->mst_stream_alloc_table.stream_count = 0;
 			memset(link->mst_stream_alloc_table.stream_allocations, 0,
 					sizeof(link->mst_stream_alloc_table.stream_allocations));
