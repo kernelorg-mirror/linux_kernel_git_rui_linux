@@ -30,6 +30,7 @@
 #include <linux/uaccess.h>
 
 #include <drm/drm_file.h>
+#include <drm/drm_syncobj.h>
 #include <drm/virtgpu_drm.h>
 
 #include "virtgpu_drv.h"
@@ -37,6 +38,12 @@
 #define VIRTGPU_BLOB_FLAG_USE_MASK (VIRTGPU_BLOB_FLAG_USE_MAPPABLE | \
 				    VIRTGPU_BLOB_FLAG_USE_SHAREABLE | \
 				    VIRTGPU_BLOB_FLAG_USE_CROSS_DEVICE)
+
+struct virtio_gpu_submit_post_dep {
+	struct drm_syncobj *syncobj;
+	struct dma_fence_chain *chain;
+	uint64_t point;
+};
 
 static int virtio_gpu_fence_event_create(struct drm_device *dev,
 					 struct drm_file *file,
@@ -108,6 +115,184 @@ static int virtio_gpu_map_ioctl(struct drm_device *dev, void *data,
 					 &virtio_gpu_map->offset);
 }
 
+static void virtio_gpu_free_syncobjs(struct drm_syncobj **syncobjs,
+				     uint32_t nr_syncobjs)
+{
+	uint32_t i = nr_syncobjs;
+
+	while (i--) {
+		if (syncobjs[i])
+			drm_syncobj_put(syncobjs[i]);
+	}
+
+	kfree(syncobjs);
+}
+
+static struct drm_syncobj **
+virtio_gpu_parse_deps(struct drm_file *file,
+		      uint64_t fence_ctx,
+		      uint32_t ring_idx,
+		      uint64_t in_syncobjs_addr,
+		      uint32_t nr_in_syncobjs,
+		      size_t syncobj_stride)
+{
+	struct drm_virtgpu_execbuffer_syncobj syncobj_desc;
+	struct drm_syncobj **syncobjs = NULL;
+	int ret = 0;
+	uint32_t i;
+
+	syncobjs = kcalloc(nr_in_syncobjs, sizeof(*syncobjs),
+			   GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
+	if (!syncobjs)
+		return ERR_PTR(-ENOMEM);
+
+	for (i = 0; i < nr_in_syncobjs; i++) {
+		uint64_t address = in_syncobjs_addr + i * syncobj_stride;
+		struct dma_fence *in_fence;
+
+		if (copy_from_user(&syncobj_desc,
+				   u64_to_user_ptr(address),
+				   min(syncobj_stride, sizeof(syncobj_desc)))) {
+			ret = -EFAULT;
+			break;
+		}
+
+		if (syncobj_desc.flags & ~VIRTGPU_EXECBUF_SYNCOBJ_FLAGS) {
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = drm_syncobj_find_fence(file, syncobj_desc.handle,
+					     syncobj_desc.point, 0, &in_fence);
+		if (ret)
+			break;
+
+		if (!dma_fence_match_context(in_fence, fence_ctx + ring_idx))
+			ret = dma_fence_wait(in_fence, true);
+
+		dma_fence_put(in_fence);
+		if (ret)
+			break;
+
+		if (syncobj_desc.flags & VIRTGPU_EXECBUF_SYNCOBJ_RESET) {
+			syncobjs[i] =
+				drm_syncobj_find(file, syncobj_desc.handle);
+			if (!syncobjs[i]) {
+				ret = -EINVAL;
+				break;
+			}
+		}
+	}
+
+	if (ret) {
+		virtio_gpu_free_syncobjs(syncobjs, i);
+		return ERR_PTR(ret);
+	}
+	return syncobjs;
+}
+
+static void virtio_gpu_reset_syncobjs(struct drm_syncobj **syncobjs,
+				      uint32_t nr_syncobjs)
+{
+	uint32_t i;
+
+	for (i = 0; syncobjs && i < nr_syncobjs; i++) {
+		if (syncobjs[i])
+			drm_syncobj_replace_fence(syncobjs[i], NULL);
+	}
+}
+
+static void
+virtio_gpu_free_post_deps(struct virtio_gpu_submit_post_dep *post_deps,
+			  uint32_t nr_syncobjs)
+{
+	uint32_t i = nr_syncobjs;
+
+	while (i--) {
+		kfree(post_deps[i].chain);
+		drm_syncobj_put(post_deps[i].syncobj);
+	}
+
+	kfree(post_deps);
+}
+
+static struct virtio_gpu_submit_post_dep *
+virtio_gpu_parse_post_deps(struct drm_file *file,
+			   uint64_t syncobjs_addr,
+			   uint32_t nr_syncobjs,
+			   size_t syncobj_stride)
+{
+	struct drm_virtgpu_execbuffer_syncobj syncobj_desc;
+	struct virtio_gpu_submit_post_dep *post_deps;
+	int ret = 0;
+	uint32_t i;
+
+	post_deps = kmalloc_array(nr_syncobjs, sizeof(*post_deps),
+				  GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
+	if (!post_deps)
+		return ERR_PTR(-ENOMEM);
+
+	for (i = 0; i < nr_syncobjs; i++) {
+		uint64_t address = syncobjs_addr + i * syncobj_stride;
+
+		if (copy_from_user(&syncobj_desc,
+				   u64_to_user_ptr(address),
+				   min(syncobj_stride, sizeof(syncobj_desc)))) {
+			ret = -EFAULT;
+			break;
+		}
+
+		post_deps[i].point = syncobj_desc.point;
+		post_deps[i].chain = NULL;
+
+		if (syncobj_desc.flags) {
+			ret = -EINVAL;
+			break;
+		}
+
+		if (syncobj_desc.point) {
+			post_deps[i].chain = dma_fence_chain_alloc();
+			if (!post_deps[i].chain) {
+				ret = -ENOMEM;
+				break;
+			}
+		}
+
+		post_deps[i].syncobj =
+			drm_syncobj_find(file, syncobj_desc.handle);
+		if (!post_deps[i].syncobj) {
+			ret = -EINVAL;
+			break;
+		}
+	}
+
+	if (ret) {
+		virtio_gpu_free_post_deps(post_deps, i);
+		return ERR_PTR(ret);
+	}
+
+	return post_deps;
+}
+
+static void
+virtio_gpu_process_post_deps(struct virtio_gpu_submit_post_dep *post_deps,
+			     uint32_t count,
+			     struct dma_fence *fence)
+{
+	uint32_t i;
+
+	for (i = 0; post_deps && i < count; i++) {
+		if (post_deps[i].chain) {
+			drm_syncobj_add_point(post_deps[i].syncobj,
+					      post_deps[i].chain,
+					      fence, post_deps[i].point);
+			post_deps[i].chain = NULL;
+		} else {
+			drm_syncobj_replace_fence(post_deps[i].syncobj, fence);
+		}
+	}
+}
+
 /*
  * Usage of execbuffer:
  * Relocations need to take into account the full VIRTIO_GPUDrawable size.
@@ -118,6 +303,8 @@ static int virtio_gpu_execbuffer_ioctl(struct drm_device *dev, void *data,
 				 struct drm_file *file)
 {
 	struct drm_virtgpu_execbuffer *exbuf = data;
+	struct drm_syncobj **syncobjs_to_reset = NULL;
+	struct virtio_gpu_submit_post_dep *post_deps = NULL;
 	struct virtio_gpu_device *vgdev = dev->dev_private;
 	struct virtio_gpu_fpriv *vfpriv = file->driver_priv;
 	struct virtio_gpu_fence *out_fence;
@@ -207,10 +394,33 @@ static int virtio_gpu_execbuffer_ioctl(struct drm_device *dev, void *data,
 		bo_handles = NULL;
 	}
 
+	if (exbuf->num_in_syncobjs) {
+		syncobjs_to_reset = virtio_gpu_parse_deps(file,
+							  fence_ctx, ring_idx,
+							  exbuf->in_syncobjs,
+							  exbuf->num_in_syncobjs,
+							  exbuf->syncobj_stride);
+		if (IS_ERR(syncobjs_to_reset)) {
+			ret = PTR_ERR(syncobjs_to_reset);
+			goto out_unused_fd;
+		}
+	}
+
+	if (exbuf->num_out_syncobjs) {
+		post_deps = virtio_gpu_parse_post_deps(file,
+						       exbuf->out_syncobjs,
+						       exbuf->num_out_syncobjs,
+						       exbuf->syncobj_stride);
+		if (IS_ERR(post_deps)) {
+			ret = PTR_ERR(post_deps);
+			goto out_syncobjs;
+		}
+	}
+
 	buf = vmemdup_user(u64_to_user_ptr(exbuf->command), exbuf->size);
 	if (IS_ERR(buf)) {
 		ret = PTR_ERR(buf);
-		goto out_unused_fd;
+		goto out_post_deps;
 	}
 
 	if (buflist) {
@@ -241,6 +451,13 @@ static int virtio_gpu_execbuffer_ioctl(struct drm_device *dev, void *data,
 		fd_install(out_fence_fd, sync_file->file);
 	}
 
+	virtio_gpu_reset_syncobjs(syncobjs_to_reset, exbuf->num_in_syncobjs);
+	virtio_gpu_free_syncobjs(syncobjs_to_reset, exbuf->num_in_syncobjs);
+
+	virtio_gpu_process_post_deps(post_deps, exbuf->num_out_syncobjs,
+				     &out_fence->f);
+	virtio_gpu_free_post_deps(post_deps, exbuf->num_out_syncobjs);
+
 	virtio_gpu_cmd_submit(vgdev, buf, exbuf->size,
 			      vfpriv->ctx_id, buflist, out_fence);
 	dma_fence_put(&out_fence->f);
@@ -252,6 +469,10 @@ out_unresv:
 		virtio_gpu_array_unlock_resv(buflist);
 out_memdup:
 	kvfree(buf);
+out_post_deps:
+	virtio_gpu_free_post_deps(post_deps, exbuf->num_out_syncobjs);
+out_syncobjs:
+	virtio_gpu_free_syncobjs(syncobjs_to_reset, exbuf->num_in_syncobjs);
 out_unused_fd:
 	kvfree(bo_handles);
 	if (buflist)
