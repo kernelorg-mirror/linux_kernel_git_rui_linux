@@ -410,6 +410,9 @@ enum dc_detect_reason {
 	DETECT_REASON_TDR,
 };
 
+enum dp_link_encoding link_dp_get_encoding_format(
+		const struct dc_link_settings *link_settings);
+
 bool dc_link_detect(struct dc_link *dc_link, enum dc_detect_reason reason);
 bool dc_link_get_hpd_state(struct dc_link *dc_link);
 enum dc_status dc_link_allocate_mst_payload(struct pipe_ctx *pipe_ctx);
