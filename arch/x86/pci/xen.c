@@ -143,6 +143,10 @@ static int acpi_register_gsi_xen_pvh(struct device *dev, u32 gsi,
 	else if (rc)
 		printk(KERN_ERR "Failed to setup GSI :%u, err_code:%d\n", gsi, rc);
 
+	rc = xen_pvh_add_gsi_irq_map(gsi, irq);
+	if (rc == -EEXIST)
+		printk(KERN_INFO "Already map the GSI :%u and IRQ: %d\n", gsi, irq);
+
 	return irq;
 }
 
