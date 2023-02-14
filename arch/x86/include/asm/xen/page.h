@@ -62,6 +62,21 @@ extern unsigned long __init set_phys_range_identity(unsigned long pfn_s,
 						    unsigned long pfn_e);
 
 #ifdef CONFIG_XEN_PV
+extern int xen_pvh_create_contiguous_region(phys_addr_t pstart,
+					    unsigned int order,
+					    unsigned int address_bits,
+					    dma_addr_t *dma_handle);
+#else
+static inline int
+xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
+				 unsigned int address_bits,
+				 dma_addr_t *dma_handle)
+{
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_XEN_PV
 extern int set_foreign_p2m_mapping(struct gnttab_map_grant_ref *map_ops,
 				   struct gnttab_map_grant_ref *kmap_ops,
 				   struct page **pages, unsigned int count);

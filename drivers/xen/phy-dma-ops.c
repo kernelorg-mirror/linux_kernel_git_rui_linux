@@ -34,8 +34,8 @@ xen_phy_alloc_coherent(struct device *dev, size_t size,
 
 	*dma_handle = xen_phys_to_dma(dev, phys);
 
-	if (xen_create_contiguous_region(phys, order, fls64(dma_mask),
-			dma_handle) != 0)
+	if (xen_pvh_create_contiguous_region(phys, order, fls64(dma_mask),
+					     dma_handle) != 0)
 		goto out_free_pages;
 	SetPageXenRemapped(virt_to_page(ret));
 

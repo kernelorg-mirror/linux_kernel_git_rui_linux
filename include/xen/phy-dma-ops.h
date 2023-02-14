@@ -4,6 +4,7 @@
 
 #include <linux/dma-direct.h>
 #include <linux/dma-map-ops.h>
+#include <asm/xen/page.h>
 
 extern const struct dma_map_ops xen_phy_dma_ops;
 
