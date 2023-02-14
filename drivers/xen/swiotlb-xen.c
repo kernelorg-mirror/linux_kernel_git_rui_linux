@@ -53,7 +53,7 @@ static inline phys_addr_t xen_phys_to_bus(struct device *dev, phys_addr_t paddr)
 	return baddr;
 }
 
-static inline dma_addr_t xen_phys_to_dma(struct device *dev, phys_addr_t paddr)
+dma_addr_t xen_phys_to_dma(struct device *dev, phys_addr_t paddr)
 {
 	return phys_to_dma(dev, xen_phys_to_bus(dev, paddr));
 }
@@ -74,7 +74,7 @@ static inline phys_addr_t xen_dma_to_phys(struct device *dev,
 	return xen_bus_to_phys(dev, dma_to_phys(dev, dma_addr));
 }
 
-static inline int range_straddles_page_boundary(phys_addr_t p, size_t size)
+int range_straddles_page_boundary(phys_addr_t p, size_t size)
 {
 	unsigned long next_bfn, xen_pfn = XEN_PFN_DOWN(p);
 	unsigned int i, nr_pages = XEN_PFN_UP(xen_offset_in_page(p) + size);

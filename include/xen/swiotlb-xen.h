@@ -12,4 +12,7 @@ void xen_dma_sync_for_device(struct device *dev, dma_addr_t handle,
 
 extern const struct dma_map_ops xen_swiotlb_dma_ops;
 
+dma_addr_t xen_phys_to_dma(struct device *dev, phys_addr_t paddr);
+int range_straddles_page_boundary(phys_addr_t p, size_t size);
+
 #endif /* __LINUX_SWIOTLB_XEN_H */
