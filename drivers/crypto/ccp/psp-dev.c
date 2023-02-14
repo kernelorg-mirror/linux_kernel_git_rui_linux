@@ -9,6 +9,8 @@
 
 #include <linux/kernel.h>
 #include <linux/irqreturn.h>
+#include <xen/xen.h>
+#include <xen/phy-dma-ops.h>
 
 #include "sp-dev.h"
 #include "psp-dev.h"
@@ -160,6 +162,9 @@ int psp_dev_init(struct sp_device *sp)
 		dev_err(dev, "psp: unable to allocate an IRQ\n");
 		goto e_err;
 	}
+
+	if (xen_initial_domain() && xen_pvh_domain())
+		dev->dma_ops = &xen_phy_dma_ops;
 
 	ret = psp_init(psp);
 	if (ret)
