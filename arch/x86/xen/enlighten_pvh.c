@@ -142,3 +142,35 @@ int xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
 	*dma_handle = out_frame << PAGE_SHIFT;
 	return success ? 0 : -ENOMEM;
 }
+
+void xen_pvh_destroy_contiguous_region(phys_addr_t pstart, unsigned int order)
+{
+	unsigned long *out_frames = discontig_frames, in_frame;
+	unsigned long  flags;
+	int success;
+	unsigned long vstart;
+
+	if (unlikely(order > MAX_CONTIG_ORDER))
+		return;
+
+	vstart = (unsigned long)phys_to_virt(pstart);
+	memset((void *) vstart, 0, PAGE_SIZE << order);
+
+	spin_lock_irqsave(&xen_reservation_lock, flags);
+
+	/* 1. Find start MFN of contiguous extent. */
+	in_frame = virt_to_mfn(vstart);
+
+	if (out_frames) {
+		unsigned long vaddr = vstart;
+		int i;
+		for (i = 0; i < (1UL<<order); i++, vaddr += PAGE_SIZE)
+			out_frames[i] = virt_to_pfn(vaddr);
+	}
+
+	/* 3. Do the exchange for non-contiguous MFNs. */
+	success = xen_pvh_exchange_memory(1, order, &in_frame, 1UL << order, 0,
+					  out_frames, 0);
+
+	spin_unlock_irqrestore(&xen_reservation_lock, flags);
+}

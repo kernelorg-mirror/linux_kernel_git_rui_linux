@@ -66,6 +66,7 @@ extern int xen_pvh_create_contiguous_region(phys_addr_t pstart,
 					    unsigned int order,
 					    unsigned int address_bits,
 					    dma_addr_t *dma_handle);
+void xen_pvh_destroy_contiguous_region(phys_addr_t pstart, unsigned int order);
 #else
 static inline int
 xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
@@ -73,6 +74,11 @@ xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
 				 dma_addr_t *dma_handle)
 {
 	return 0;
+}
+static inline void
+xen_pvh_destroy_contiguous_region(phys_addr_t pstart, unsigned int order)
+{
+	return;
 }
 #endif
 

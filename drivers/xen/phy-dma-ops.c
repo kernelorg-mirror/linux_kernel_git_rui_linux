@@ -58,7 +58,7 @@ xen_phy_free_coherent(struct device *dev, size_t size, void *vaddr,
 	size = 1UL << (order + XEN_PAGE_SHIFT);
 
 	if (TestClearPageXenRemapped(virt_to_page(vaddr)))
-		xen_destroy_contiguous_region(phys, order);
+		xen_pvh_destroy_contiguous_region(phys, order);
 	free_pages((unsigned long)vaddr, get_order(size));
 }
 
