@@ -103,6 +103,16 @@ struct privcmd_gsi_from_irq {
 	__u32 gsi;
 };
 
+struct privcmd_map_hva_to_gpfns {
+    int nr_pages;
+    domid_t hdom;
+    domid_t gdom;
+    __u64 __user hva;
+    const xen_pfn_t __user *gpfns;
+    xen_pfn_t __user *hpfns;
+    int add_mapping;
+};
+
 /*
  * @cmd: IOCTL_PRIVCMD_HYPERCALL
  * @arg: &privcmd_hypercall_t
@@ -132,5 +142,7 @@ struct privcmd_gsi_from_irq {
 	_IOC(_IOC_NONE, 'P', 7, sizeof(struct privcmd_mmap_resource))
 #define IOCTL_PRIVCMD_GSI_FROM_IRQ				\
 	_IOC(_IOC_NONE, 'P', 8, sizeof(struct privcmd_gsi_from_irq))
+#define IOCTL_PRIVCMD_MAP_HVA_TO_GPFNS                          \
+        _IOC(_IOC_NONE, 'P', 13, sizeof(struct privcmd_map_hva_to_gpfns))
 
 #endif /* __LINUX_PUBLIC_PRIVCMD_H__ */

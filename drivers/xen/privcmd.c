@@ -849,6 +849,93 @@ static long privcmd_ioctl_gsi_from_irq(struct file *file, void __user *udata)
 	return 0;
 }
 
+static long privcmd_ioctl_map_hva_to_gpfns(struct file *file, void __user *udata)
+{
+	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma;
+	struct privcmd_map_hva_to_gpfns data;
+	unsigned long hva;
+	unsigned long *hpfns;
+	int i, ret=0;
+	bool is_userspace;
+
+	if (copy_from_user(&data, udata, sizeof(data))) {
+		printk(KERN_WARNING "%s: failed to copy from user ioctl data\n", __func__);
+		return -EFAULT;
+	}
+
+	hpfns = kmalloc(data.nr_pages * sizeof(*hpfns), GFP_KERNEL);
+	if (!hpfns)
+		return -ENOMEM;
+	hva = data.hva;
+
+	mmap_read_lock(mm);
+	vma = find_vma(mm, hva);
+	if (!vma) {
+		mmap_read_unlock(mm);
+		kfree(hpfns);
+		printk(KERN_WARNING "%s: vma for hva=0x%lx not found\n", __func__, hva);
+		return -EINVAL;
+	}
+
+	is_userspace = !(vma->vm_flags & (VM_IO | VM_PFNMAP));
+	if (is_userspace) {
+		struct page **pages;
+
+		pages = kmalloc(data.nr_pages * sizeof(*pages), GFP_KERNEL);
+		if (!pages) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		if (1/*data.add_mapping*/) {
+			ret = pin_user_pages(hva, data.nr_pages, FOLL_WRITE, pages, NULL);
+			if (ret != data.nr_pages) {
+				printk(KERN_WARNING "failed to pin!!\n");
+				goto out;
+			}
+			for (i = 0; i < data.nr_pages; i++)
+				hpfns[i] = page_to_pfn(pages[i]);
+		}
+		kfree(pages);
+		ret = 0;
+		goto out;
+	}
+
+	for (i = 0; i < data.nr_pages; i++) {
+		unsigned long start = hva + i * PAGE_SIZE;
+		pte_t *ptep;
+		spinlock_t *ptl;
+
+		ret = follow_pte(vma->vm_mm, start, &ptep, &ptl);
+		if (ret) {
+			bool unlocked = false;
+			ret = fixup_user_fault(mm, start, 0, &unlocked);
+			if (unlocked)
+				ret = -EAGAIN;
+			if (ret) {
+				printk(KERN_WARNING "@@@ fixup_user_fault failed\n");
+				break;;
+			}
+			ret = follow_pte(vma->vm_mm, start, &ptep, &ptl);
+			if (ret) {
+				printk(KERN_WARNING "@@@ follow_pte not again!!!\n");
+				break;
+			}
+		}
+		hpfns[i] = pte_pfn(*ptep);
+		pte_unmap_unlock(ptep, ptl);
+	}
+ out:
+	mmap_read_unlock(mm);
+
+	if (copy_to_user(data.hpfns, hpfns, data.nr_pages * sizeof(*hpfns))) {
+		printk(KERN_WARNING "%s: failed to copy to user hfns\n", __func__);
+		ret = -EFAULT;
+	}
+	kfree(hpfns);
+	return ret;
+}
+
 static long privcmd_ioctl(struct file *file,
 			  unsigned int cmd, unsigned long data)
 {
@@ -886,6 +973,10 @@ static long privcmd_ioctl(struct file *file,
 
 	case IOCTL_PRIVCMD_GSI_FROM_IRQ:
 		ret = privcmd_ioctl_gsi_from_irq(file, udata);
+		break;
+
+	case IOCTL_PRIVCMD_MAP_HVA_TO_GPFNS:
+		ret = privcmd_ioctl_map_hva_to_gpfns(file, udata);
 		break;
 
 	default:
