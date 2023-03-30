@@ -500,6 +500,9 @@ struct amdgpu_display_manager {
 	 * all crtcs.
  	 */
 	struct secure_display_context *secure_display_ctxs;
+
+	/* properties for secure_display ROI configuration */
+	struct drm_property *secure_display_roi_property;
 #endif
 	/**
 	 * @hpd_rx_offload_wq:
@@ -686,6 +689,13 @@ struct dm_crtc_state {
 	struct dc_info_packet vrr_infopacket;
 
 	int abm_level;
+
+#ifdef CONFIG_DRM_AMD_SECURE_DISPLAY
+	struct {
+		struct drm_property_blob *roi_blob;
+		bool roi_changed : 1;
+	} secure_display_state;
+#endif
 };
 
 #define to_dm_crtc_state(x) container_of(x, struct dm_crtc_state, base)

@@ -1242,6 +1242,26 @@ struct drm_mode_rect {
 	__s32 y2;
 };
 
+/**
+ * struct drm_roi - The enablement and region of interest (ROI) of secure display
+ * @x_start: Horizontal starting coordinate of ROI.
+ * @y_start: Vertical starting coordinate of ROI.
+ * @x_end: Horizontal ending coordinate of ROI.
+ * @y_end: Vertical ending coordinate of ROI.
+ * @secure_display_enable: To enable or disable secure display.
+ *
+ * Userspace uses this structure to configure the region of interest and
+ * enablement for secure display.
+ */
+struct drm_roi {
+	__u32 x_start;
+	__u32 y_start;
+	__u32 x_end;
+	__u32 y_end;
+	__u8 secure_display_enable;
+	__u8 pad[7];
+};
+
 #if defined(__cplusplus)
 }
 #endif

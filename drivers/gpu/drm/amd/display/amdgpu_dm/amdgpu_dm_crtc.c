@@ -248,6 +248,10 @@ static struct drm_crtc_state *dm_crtc_duplicate_state(struct drm_crtc *crtc)
 	state->cm_is_degamma_srgb = cur->cm_is_degamma_srgb;
 	state->crc_skip_count = cur->crc_skip_count;
 	state->mpo_requested = cur->mpo_requested;
+
+#ifdef CONFIG_DRM_AMD_SECURE_DISPLAY
+	state->secure_display_state = cur->secure_display_state;
+#endif
 	/* TODO Duplicate dc_stream after objects are stream object is flattened */
 
 	return &state->base;
@@ -272,6 +276,33 @@ static void dm_crtc_reset_state(struct drm_crtc *crtc)
 
 	__drm_atomic_helper_crtc_reset(crtc, &state->base);
 }
+
+#ifdef CONFIG_DRM_AMD_SECURE_DISPLAY
+int amdgpu_dm_crtc_create_secure_display_properties(struct amdgpu_device *adev)
+{
+	struct amdgpu_display_manager *dm = &adev->dm;
+	struct drm_device *dev = adev_to_drm(adev);
+	struct drm_property *roi_prop;
+
+	roi_prop = drm_property_create(dev, DRM_MODE_PROP_BLOB,
+					"SECURE_DISPLAY_ROI", 0);
+	if (!roi_prop)
+		return -ENOMEM;
+
+	dm->secure_display_roi_property = roi_prop;
+
+	return 0;
+}
+
+void amdgpu_dm_crtc_attach_secure_display_properties(struct amdgpu_device *adev,
+				struct drm_crtc *crtc)
+{
+	struct amdgpu_display_manager *dm = &adev->dm;
+
+	if (dm->secure_display_roi_property)
+		drm_object_attach_property(&crtc->base, dm->secure_display_roi_property, 0);
+}
+#endif
 
 #ifdef CONFIG_DEBUG_FS
 static int amdgpu_dm_crtc_late_register(struct drm_crtc *crtc)
