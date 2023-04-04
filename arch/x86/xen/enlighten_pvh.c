@@ -27,7 +27,6 @@ bool __ro_after_init xen_pvh;
 EXPORT_SYMBOL_GPL(xen_pvh);
 
 #define MAX_CONTIG_ORDER 9 /* 2MB */
-static unsigned long discontig_frames[1<<MAX_CONTIG_ORDER];
 static DEFINE_SPINLOCK(xen_reservation_lock);
 
 void __init xen_pvh_init(struct boot_params *boot_params)
@@ -106,10 +105,10 @@ int xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
 				     unsigned int address_bits,
 				     dma_addr_t *dma_handle)
 {
-	unsigned long *in_frames = discontig_frames, out_frame;
+	unsigned long *in_frames, out_frame;
 	unsigned long  flags;
 	int            success;
-	unsigned long vstart = (unsigned long)phys_to_virt(pstart);
+	unsigned long vaddr, vstart = (unsigned long)phys_to_virt(pstart);
 
 	/*
 	 * Currently an auto-translated guest will not perform I/O, nor will
@@ -120,12 +119,14 @@ int xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
 	if (unlikely(order > MAX_CONTIG_ORDER))
 		return -ENOMEM;
 
-	if (in_frames) {
-		unsigned long vaddr = vstart;
-		int i;
-		for (i = 0; i < (1UL<<order); i++, vaddr += PAGE_SIZE)
-			in_frames[i] = virt_to_pfn(vaddr);
-	}
+	in_frames = kmalloc_array(1UL << order,
+				  sizeof(unsigned long), GFP_KERNEL);
+	if (!in_frames)
+		return -ENOMEM;
+
+	vaddr = vstart;
+	for (int i = 0; i < (1UL<<order); i++, vaddr += PAGE_SIZE)
+		in_frames[i] = virt_to_pfn(vaddr);
 
 	memset((void *) vstart, 0, PAGE_SIZE << order);
 
@@ -138,6 +139,7 @@ int xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
 				      address_bits);
 
 	spin_unlock_irqrestore(&xen_reservation_lock, flags);
+	kfree(in_frames);
 
 	*dma_handle = out_frame << PAGE_SHIFT;
 	return success ? 0 : -ENOMEM;
@@ -145,10 +147,10 @@ int xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
 
 void xen_pvh_destroy_contiguous_region(phys_addr_t pstart, unsigned int order)
 {
-	unsigned long *out_frames = discontig_frames, in_frame;
+	unsigned long *out_frames, in_frame;
 	unsigned long  flags;
 	int success;
-	unsigned long vstart;
+	unsigned long vaddr, vstart;
 
 	if (unlikely(order > MAX_CONTIG_ORDER))
 		return;
@@ -161,16 +163,19 @@ void xen_pvh_destroy_contiguous_region(phys_addr_t pstart, unsigned int order)
 	/* 1. Find start MFN of contiguous extent. */
 	in_frame = virt_to_mfn(vstart);
 
-	if (out_frames) {
-		unsigned long vaddr = vstart;
-		int i;
-		for (i = 0; i < (1UL<<order); i++, vaddr += PAGE_SIZE)
-			out_frames[i] = virt_to_pfn(vaddr);
-	}
+	out_frames = kmalloc_array(1UL << order,
+				  sizeof(unsigned long), GFP_KERNEL);
+	if (!out_frames)
+		return;
+
+	vaddr = vstart;
+	for (int i = 0; i < (1UL<<order); i++, vaddr += PAGE_SIZE)
+		out_frames[i] = virt_to_pfn(vaddr);
 
 	/* 3. Do the exchange for non-contiguous MFNs. */
 	success = xen_pvh_exchange_memory(1, order, &in_frame, 1UL << order, 0,
 					  out_frames, 0);
 
 	spin_unlock_irqrestore(&xen_reservation_lock, flags);
+	kfree(out_frames);
 }
