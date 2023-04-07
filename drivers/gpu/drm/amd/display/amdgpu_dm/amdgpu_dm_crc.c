@@ -529,6 +529,8 @@ void amdgpu_dm_crtc_handle_crc_window_irq(struct drm_crtc *crtc)
 	struct amdgpu_crtc *acrtc = NULL;
 	struct amdgpu_device *adev = NULL;
 	struct secure_display_context *secure_display_ctx = NULL;
+	bool reset_crc_frame_count = false, crc_is_updated = false;
+	uint32_t crc[3] = {0};
 	unsigned long flags1;
 
 	if (crtc == NULL)
@@ -543,15 +545,14 @@ void amdgpu_dm_crtc_handle_crc_window_irq(struct drm_crtc *crtc)
 
 	/* Early return if CRC capture is not enabled. */
 	if (!amdgpu_dm_is_valid_crc_source(cur_crc_src) ||
-		!dm_is_crc_source_crtc(cur_crc_src))
-		goto cleanup;
+	    !dm_is_crc_source_crtc(cur_crc_src)) {
+		spin_unlock_irqrestore(&drm_dev->event_lock, flags1);
+		return;
+	}
 
-	if (!acrtc->dm_irq_params.window_param.activated)
-		goto cleanup;
-
-	if (acrtc->dm_irq_params.window_param.skip_frame_cnt) {
-		acrtc->dm_irq_params.window_param.skip_frame_cnt -= 1;
-		goto cleanup;
+	if (!acrtc->dm_irq_params.window_param.activated) {
+		spin_unlock_irqrestore(&drm_dev->event_lock, flags1);
+		return;
 	}
 
 	secure_display_ctx = &adev->dm.secure_display_ctxs[acrtc->crtc_id];
@@ -560,6 +561,11 @@ void amdgpu_dm_crtc_handle_crc_window_irq(struct drm_crtc *crtc)
 		 * don't expect it to be changed here.
 		 */
 		secure_display_ctx->crtc = crtc;
+	}
+
+	if (acrtc->dm_irq_params.window_param.skip_frame_cnt) {
+		acrtc->dm_irq_params.window_param.skip_frame_cnt -= 1;
+		goto cleanup;
 	}
 
 	if (acrtc->dm_irq_params.window_param.update_win) {
@@ -572,6 +578,8 @@ void amdgpu_dm_crtc_handle_crc_window_irq(struct drm_crtc *crtc)
 								acrtc->dm_irq_params.window_param.y_start;
 		schedule_work(&secure_display_ctx->forward_roi_work);
 
+		reset_crc_frame_count = true;
+
 		acrtc->dm_irq_params.window_param.update_win = false;
 
 		/* Statically skip 1 frame, because we may need to wait below things
@@ -582,12 +590,38 @@ void amdgpu_dm_crtc_handle_crc_window_irq(struct drm_crtc *crtc)
 		acrtc->dm_irq_params.window_param.skip_frame_cnt = 1;
 
 	} else {
+		struct dc_stream_state *stream_state = to_dm_crtc_state(crtc->state)->stream;
+
+		if (!dc_stream_get_crc(stream_state->ctx->dc, stream_state,
+					&crc[0], &crc[1], &crc[2]))
+			DRM_ERROR("Secure Display: fail to get crc\n");
+		else
+			crc_is_updated = true;
+
 		/* prepare work for psp to read ROI/CRC and send to I2C */
 		schedule_work(&secure_display_ctx->notify_ta_work);
 	}
 
 cleanup:
 	spin_unlock_irqrestore(&drm_dev->event_lock, flags1);
+
+	spin_lock_irqsave(&secure_display_ctx->crc.lock, flags1);
+
+	if (reset_crc_frame_count || secure_display_ctx->crc.frame_count == UINT_MAX)
+		/* Reset the reference frame count after user update the ROI
+		 * or it reaches the maximum value.
+		 */
+		secure_display_ctx->crc.frame_count = 0;
+	else
+		secure_display_ctx->crc.frame_count += 1;
+
+	if (crc_is_updated) {
+		secure_display_ctx->crc.crc_R = crc[0];
+		secure_display_ctx->crc.crc_G = crc[1];
+		secure_display_ctx->crc.crc_B = crc[2];
+	}
+
+	spin_unlock_irqrestore(&secure_display_ctx->crc.lock, flags1);
 }
 
 struct secure_display_context *
