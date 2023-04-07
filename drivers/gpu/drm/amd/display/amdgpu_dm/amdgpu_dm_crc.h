@@ -46,6 +46,7 @@ struct crc_data {
 	uint32_t crc_B;
 	uint32_t frame_count;
 	spinlock_t lock;
+	struct completion completion;
 };
 
 struct crc_window_param {

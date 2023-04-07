@@ -362,6 +362,10 @@ static int amdgpu_dm_crtc_atomic_get_property(struct drm_crtc *crtc,
 	struct secure_display_context *secure_display_ctx =
 		&adev->dm.secure_display_ctxs[crtc->index];
 
+	if (amdgpu_dm_crc_window_is_activated(crtc))
+		wait_for_completion_interruptible_timeout(
+			&secure_display_ctx->crc.completion, 10 * HZ);
+
 	if (property == adev->dm.secure_display_roi_property)
 		*val = (dm_state->secure_display_state.roi_blob)
 			? dm_state->secure_display_state.roi_blob->base.id : 0;

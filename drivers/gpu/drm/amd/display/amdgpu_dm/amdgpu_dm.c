@@ -8478,7 +8478,12 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
 				(struct drm_roi *)dm_new_crtc_state->secure_display_state.roi_blob->data;
 
 			if (roi_data->secure_display_enable) {
+				struct secure_display_context *secure_display_ctx =
+					&dm->secure_display_ctxs[acrtc->crtc_id];
+
 				if (!amdgpu_dm_crc_window_is_activated(crtc)) {
+					init_completion(&secure_display_ctx->crc.completion);
+
 					/* Enable secure display: set crc source to "crtc" */
 					amdgpu_dm_crtc_set_secure_display_crc_source(crtc, "crtc");
 
@@ -8488,7 +8493,8 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
 					spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
 					acrtc->dm_irq_params.window_param.activated = true;
 					spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
-				}
+				} else
+					reinit_completion(&secure_display_ctx->crc.completion);
 
 				/* Update ROI: copy ROI from dm_crtc_state to dm_irq_params */
 				spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);

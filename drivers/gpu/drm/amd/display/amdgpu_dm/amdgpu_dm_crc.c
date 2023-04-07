@@ -619,6 +619,7 @@ cleanup:
 		secure_display_ctx->crc.crc_R = crc[0];
 		secure_display_ctx->crc.crc_G = crc[1];
 		secure_display_ctx->crc.crc_B = crc[2];
+		complete_all(&secure_display_ctx->crc.completion);
 	}
 
 	spin_unlock_irqrestore(&secure_display_ctx->crc.lock, flags1);
