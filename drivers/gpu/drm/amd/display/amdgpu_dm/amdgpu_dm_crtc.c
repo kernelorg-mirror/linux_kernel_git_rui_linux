@@ -341,6 +341,10 @@ static int amdgpu_dm_crtc_atomic_set_property(struct drm_crtc *crtc,
 		dm_state->secure_display_state.roi_changed |=
 			drm_property_replace_blob(old_blob, new_blob);
 
+	} else if (property == adev->dm.secure_display_crc_property) {
+		/* don't let user set CRC data */
+		return -EPERM;
+
 	} else
 		return -EINVAL;
 
@@ -355,12 +359,44 @@ static int amdgpu_dm_crtc_atomic_get_property(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct amdgpu_device *adev = drm_to_adev(dev);
 	struct dm_crtc_state *dm_state = to_dm_crtc_state(crtc_state);
+	struct secure_display_context *secure_display_ctx =
+		&adev->dm.secure_display_ctxs[crtc->index];
 
 	if (property == adev->dm.secure_display_roi_property)
 		*val = (dm_state->secure_display_state.roi_blob)
 			? dm_state->secure_display_state.roi_blob->base.id : 0;
 
-	else
+	else if (property == adev->dm.secure_display_crc_property) {
+		struct drm_crc *blob_data;
+		struct drm_property_blob *blob;
+		unsigned long flag;
+
+		if (!amdgpu_dm_crc_window_is_activated(crtc)) {
+			*val = 0;
+			return 0;
+		}
+
+		/* save new value to blob */
+		blob = drm_property_create_blob(dev,
+						sizeof(struct drm_crc),
+						NULL);
+		if (IS_ERR(blob)) {
+			*val = 0;
+			return -ENOMEM;
+		}
+
+		blob_data = (struct drm_crc *) blob->data;
+		spin_lock_irqsave(&secure_display_ctx->crc.lock, flag);
+		blob_data->crc_r = secure_display_ctx->crc.crc_R;
+		blob_data->crc_g = secure_display_ctx->crc.crc_G;
+		blob_data->crc_b = secure_display_ctx->crc.crc_B;
+		blob_data->frame_count = secure_display_ctx->crc.frame_count;
+		spin_unlock_irqrestore(&secure_display_ctx->crc.lock, flag);
+
+		drm_property_replace_blob(&dm_state->secure_display_state.crc_blob, blob);
+		*val = blob->base.id;
+
+	} else
 		return -EINVAL;
 
 	return 0;

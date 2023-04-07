@@ -696,6 +696,7 @@ struct dm_crtc_state {
 #ifdef CONFIG_DRM_AMD_SECURE_DISPLAY
 	struct {
 		struct drm_property_blob *roi_blob;
+		struct drm_property_blob *crc_blob;
 		bool roi_changed : 1;
 	} secure_display_state;
 #endif
