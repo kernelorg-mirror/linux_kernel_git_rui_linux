@@ -302,6 +302,52 @@ void amdgpu_dm_crtc_attach_secure_display_properties(struct amdgpu_device *adev,
 	if (dm->secure_display_roi_property)
 		drm_object_attach_property(&crtc->base, dm->secure_display_roi_property, 0);
 }
+
+static int amdgpu_dm_crtc_atomic_set_property(struct drm_crtc *crtc,
+					    struct drm_crtc_state *crtc_state,
+					    struct drm_property *property,
+					    uint64_t val)
+{
+	struct drm_device *dev = crtc->dev;
+	struct amdgpu_device *adev = drm_to_adev(dev);
+	struct dm_crtc_state *dm_state = to_dm_crtc_state(crtc_state);
+
+	if (property == adev->dm.secure_display_roi_property) {
+		struct drm_property_blob *new_blob, **old_blob;
+		old_blob = &dm_state->secure_display_state.roi_blob;
+
+		if (val != 0) {
+			new_blob = drm_property_lookup_blob(dev, val);
+			if (!new_blob)
+				return -EINVAL;
+		}
+		dm_state->secure_display_state.roi_changed |=
+			drm_property_replace_blob(old_blob, new_blob);
+
+	} else
+		return -EINVAL;
+
+	return 0;
+}
+
+static int amdgpu_dm_crtc_atomic_get_property(struct drm_crtc *crtc,
+					    const struct drm_crtc_state *crtc_state,
+					    struct drm_property *property,
+					    uint64_t *val)
+{
+	struct drm_device *dev = crtc->dev;
+	struct amdgpu_device *adev = drm_to_adev(dev);
+	struct dm_crtc_state *dm_state = to_dm_crtc_state(crtc_state);
+
+	if (property == adev->dm.secure_display_roi_property)
+		*val = (dm_state->secure_display_state.roi_blob)
+			? dm_state->secure_display_state.roi_blob->base.id : 0;
+
+	else
+		return -EINVAL;
+
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_DEBUG_FS
@@ -330,6 +376,10 @@ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
 	.get_vblank_timestamp = drm_crtc_vblank_helper_get_vblank_timestamp,
 #if defined(CONFIG_DEBUG_FS)
 	.late_register = amdgpu_dm_crtc_late_register,
+#endif
+#ifdef CONFIG_DRM_AMD_SECURE_DISPLAY
+	.atomic_set_property = amdgpu_dm_crtc_atomic_set_property,
+	.atomic_get_property = amdgpu_dm_crtc_atomic_get_property,
 #endif
 };
 
