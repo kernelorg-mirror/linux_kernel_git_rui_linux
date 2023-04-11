@@ -391,7 +391,7 @@ bool xen_initdom_restore_msi(struct pci_dev *dev)
 {
 	int ret = 0;
 
-	if (!xen_initial_domain())
+	if (!xen_initial_domain() || !xen_pv_domain())
 		return true;
 
 	if (pci_seg_supported) {
