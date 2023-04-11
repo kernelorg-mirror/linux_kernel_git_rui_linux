@@ -2,6 +2,7 @@
 #include <linux/acpi.h>
 #include <linux/export.h>
 
+#include <xen/acpi.h>
 #include <xen/hvc-console.h>
 
 #include <asm/io_apic.h>
@@ -63,6 +64,13 @@ void __init mem_map_via_hcall(struct boot_params *boot_params_p)
 	}
 	boot_params_p->e820_entries = memmap.nr_entries;
 }
+
+static int __init xen_acpi_sleep(void)
+{
+	xen_acpi_sleep_register();
+	return 0;
+}
+late_initcall(xen_acpi_sleep);
 
 static int xen_pvh_exchange_memory(unsigned long extents_in, unsigned int order_in,
 			       unsigned long *pfns_in,
