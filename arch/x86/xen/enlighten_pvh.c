@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/acpi.h>
+#include <linux/cpufreq.h>
+#include <linux/cpuidle.h>
 #include <linux/export.h>
 
 #include <xen/acpi.h>
@@ -48,6 +50,9 @@ void __init xen_pvh_init(struct boot_params *boot_params)
 	x86_init.oem.banner = xen_banner;
 
 	xen_efi_init(boot_params);
+
+	disable_cpufreq();
+	disable_cpuidle();
 }
 
 void __init mem_map_via_hcall(struct boot_params *boot_params_p)
