@@ -110,12 +110,15 @@ struct secure_display_context *amdgpu_dm_crtc_secure_display_create_contexts(
 int amdgpu_dm_crtc_create_secure_display_properties(struct amdgpu_device *adev);
 void amdgpu_dm_crtc_attach_secure_display_properties(struct amdgpu_device *adev,
 						struct drm_crtc *crtc);
+int amdgpu_dm_crtc_set_secure_display_crc_source(struct drm_crtc *crtc,
+						const char *src_name);
 #else
 #define amdgpu_dm_crc_window_is_activated(x)
 #define amdgpu_dm_crtc_handle_crc_window_irq(x)
 #define amdgpu_dm_crtc_secure_display_create_contexts(x)
 #define amdgpu_dm_crtc_create_secure_display_properties(x)
 #define amdgpu_dm_crtc_attach_secure_display_properties(x)
+#define amdgpu_dm_crtc_set_secure_display_crc_source(x)
 #endif
 
 #endif /* AMD_DAL_DEV_AMDGPU_DM_AMDGPU_DM_CRC_H_ */

@@ -8471,6 +8471,44 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
 			}
 		}
 #endif
+
+#ifdef CONFIG_DRM_AMD_SECURE_DISPLAY
+		if (new_crtc_state->active && dm_new_crtc_state->secure_display_state.roi_changed) {
+			struct drm_roi *roi_data =
+				(struct drm_roi *)dm_new_crtc_state->secure_display_state.roi_blob->data;
+
+			if (roi_data->secure_display_enable) {
+				if (!amdgpu_dm_crc_window_is_activated(crtc)) {
+					/* Enable secure display: set crc source to "crtc" */
+					amdgpu_dm_crtc_set_secure_display_crc_source(crtc, "crtc");
+
+					/* wait 1 more frame for CRC engine to start */
+					acrtc->dm_irq_params.window_param.skip_frame_cnt = 1;
+
+					spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
+					acrtc->dm_irq_params.window_param.activated = true;
+					spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
+				}
+
+				/* Update ROI: copy ROI from dm_crtc_state to dm_irq_params */
+				spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
+				acrtc->dm_irq_params.window_param.x_start = roi_data->x_start;
+				acrtc->dm_irq_params.window_param.y_start = roi_data->y_start;
+				acrtc->dm_irq_params.window_param.x_end = roi_data->x_end;
+				acrtc->dm_irq_params.window_param.y_end = roi_data->y_end;
+				acrtc->dm_irq_params.window_param.update_win = true;
+				spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
+
+			} else {
+				if (amdgpu_dm_crc_window_is_activated(crtc)) {
+					/* Disable secure display: set crc source to "none" */
+					amdgpu_dm_crtc_set_secure_display_crc_source(crtc, "none");
+				}
+			}
+
+			dm_new_crtc_state->secure_display_state.roi_changed = false;
+		}
+#endif
 	}
 
 	for_each_new_crtc_in_state(state, crtc, new_crtc_state, j)

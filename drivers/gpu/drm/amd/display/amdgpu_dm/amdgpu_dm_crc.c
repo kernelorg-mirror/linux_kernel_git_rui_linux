@@ -465,6 +465,63 @@ void amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc)
 }
 
 #if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
+int amdgpu_dm_crtc_set_secure_display_crc_source(struct drm_crtc *crtc, const char *src_name)
+{
+	enum amdgpu_dm_pipe_crc_source source = dm_parse_crc_source(src_name);
+	enum amdgpu_dm_pipe_crc_source cur_crc_src;
+	struct dm_crtc_state *crtc_state;
+	struct drm_device *drm_dev = crtc->dev;
+	struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
+	bool enable = false;
+	bool enabled = false;
+	int ret = 0;
+	unsigned long flag;
+
+	if (source < 0) {
+		DRM_DEBUG_DRIVER("Unknown CRC source %s for CRTC%d\n",
+				 src_name, crtc->index);
+		return -EINVAL;
+	}
+
+	enable = amdgpu_dm_is_valid_crc_source(source);
+	crtc_state = to_dm_crtc_state(crtc->state);
+	spin_lock_irqsave(&drm_dev->event_lock, flag);
+	cur_crc_src = acrtc->dm_irq_params.crc_src;
+	spin_unlock_irqrestore(&drm_dev->event_lock, flag);
+
+	/* Reset secure_display when we change crc source */
+	amdgpu_dm_set_crc_window_default(crtc, crtc_state->stream);
+
+	if (amdgpu_dm_crtc_configure_crc_source(crtc, crtc_state, source)) {
+		ret = -EINVAL;
+		goto cleanup;
+	}
+
+	/*
+	 * Reading the CRC requires the vblank interrupt handler to be
+	 * enabled. Keep a reference until CRC capture stops.
+	 */
+	enabled = amdgpu_dm_is_valid_crc_source(cur_crc_src);
+	if (!enabled && enable) {
+		ret = drm_crtc_vblank_get(crtc);
+		if (ret)
+			goto cleanup;
+
+	} else if (enabled && !enable) {
+		drm_crtc_vblank_put(crtc);
+	}
+
+	spin_lock_irqsave(&drm_dev->event_lock, flag);
+	acrtc->dm_irq_params.crc_src = source;
+	spin_unlock_irqrestore(&drm_dev->event_lock, flag);
+
+	/* Reset crc_skipped on dm state */
+	crtc_state->crc_skip_count = 0;
+
+cleanup:
+	return ret;
+}
+
 void amdgpu_dm_crtc_handle_crc_window_irq(struct drm_crtc *crtc)
 {
 	struct drm_device *drm_dev = NULL;
