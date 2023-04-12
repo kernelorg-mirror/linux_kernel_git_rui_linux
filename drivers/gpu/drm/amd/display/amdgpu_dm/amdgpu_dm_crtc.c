@@ -282,16 +282,30 @@ int amdgpu_dm_crtc_create_secure_display_properties(struct amdgpu_device *adev)
 {
 	struct amdgpu_display_manager *dm = &adev->dm;
 	struct drm_device *dev = adev_to_drm(adev);
-	struct drm_property *roi_prop;
+	struct drm_property *roi_prop, *crc_prop;
 
 	roi_prop = drm_property_create(dev, DRM_MODE_PROP_BLOB,
 					"SECURE_DISPLAY_ROI", 0);
-	if (!roi_prop)
-		return -ENOMEM;
+
+	crc_prop = drm_property_create(dev, DRM_MODE_PROP_BLOB,
+					"SECURE_DISPLAY_CRC", 0);
+
+	if (!roi_prop || !crc_prop)
+		goto fail;
 
 	dm->secure_display_roi_property = roi_prop;
+	dm->secure_display_crc_property = crc_prop;
 
 	return 0;
+
+fail:
+	if (roi_prop)
+		drm_property_destroy(dev, roi_prop);
+
+	if (crc_prop)
+		drm_property_destroy(dev, roi_prop);
+
+	return -ENOMEM;
 }
 
 void amdgpu_dm_crtc_attach_secure_display_properties(struct amdgpu_device *adev,
@@ -301,6 +315,9 @@ void amdgpu_dm_crtc_attach_secure_display_properties(struct amdgpu_device *adev,
 
 	if (dm->secure_display_roi_property)
 		drm_object_attach_property(&crtc->base, dm->secure_display_roi_property, 0);
+
+	if (dm->secure_display_crc_property)
+		drm_object_attach_property(&crtc->base, dm->secure_display_crc_property, 0);
 }
 
 static int amdgpu_dm_crtc_atomic_set_property(struct drm_crtc *crtc,

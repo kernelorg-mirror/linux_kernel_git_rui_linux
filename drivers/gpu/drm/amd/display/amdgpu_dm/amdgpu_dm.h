@@ -503,6 +503,9 @@ struct amdgpu_display_manager {
 
 	/* properties for secure_display ROI configuration */
 	struct drm_property *secure_display_roi_property;
+
+	/* properties for secure_display CRC information */
+	struct drm_property *secure_display_crc_property;
 #endif
 	/**
 	 * @hpd_rx_offload_wq:

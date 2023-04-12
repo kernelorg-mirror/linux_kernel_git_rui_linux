@@ -550,6 +550,7 @@ amdgpu_dm_crtc_secure_display_create_contexts(struct amdgpu_device *adev)
 		DRM_ERROR("amdgpu: failed to create secure display properties.\n");
 
 	for (i = 0; i < adev->mode_info.num_crtc; i++) {
+		spin_lock_init(&secure_display_ctxs[i].crc.lock);
 		INIT_WORK(&secure_display_ctxs[i].forward_roi_work, amdgpu_dm_forward_crc_window);
 		INIT_WORK(&secure_display_ctxs[i].notify_ta_work, amdgpu_dm_crtc_notify_ta_to_read);
 		secure_display_ctxs[i].crtc = &adev->mode_info.crtcs[i]->base;

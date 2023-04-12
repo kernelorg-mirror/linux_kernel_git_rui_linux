@@ -40,6 +40,14 @@ enum amdgpu_dm_pipe_crc_source {
 };
 
 #ifdef CONFIG_DRM_AMD_SECURE_DISPLAY
+struct crc_data {
+	uint32_t crc_R;
+	uint32_t crc_G;
+	uint32_t crc_B;
+	uint32_t frame_count;
+	spinlock_t lock;
+};
+
 struct crc_window_param {
 	uint16_t x_start;
 	uint16_t y_start;
@@ -64,6 +72,8 @@ struct secure_display_context {
 
 	/* Region of Interest (ROI) */
 	struct rect rect;
+
+	struct crc_data crc;
 };
 #endif
 

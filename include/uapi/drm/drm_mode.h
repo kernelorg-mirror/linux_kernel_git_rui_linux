@@ -1262,6 +1262,25 @@ struct drm_roi {
 	__u8 pad[7];
 };
 
+/**
+ * struct drm_crc - The CRC value of the corresponding ROI of secure display.
+ * @crc_r: CRC value of red color.
+ * @crc_g: CRC value of green color.
+ * @crc_b: CRC value of blue color.
+ * @frame_count: a referenced frame count to indicate which frame the CRC values
+ *  are generated at.
+ *
+ * Userspace uses this structure to retrieve the CRC value of the current ROI of
+ * secure display. @frame_count will be reset once a new ROI is updated or it reaches
+ * its maximum value.
+ */
+struct drm_crc {
+	__u32 crc_r;
+	__u32 crc_g;
+	__u32 crc_b;
+	__u32 frame_count;
+};
+
 #if defined(__cplusplus)
 }
 #endif
