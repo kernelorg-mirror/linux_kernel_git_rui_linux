@@ -61,7 +61,7 @@ extern bool __set_phys_to_machine(unsigned long pfn, unsigned long mfn);
 extern unsigned long __init set_phys_range_identity(unsigned long pfn_s,
 						    unsigned long pfn_e);
 
-#ifdef CONFIG_XEN_PV
+#ifdef CONFIG_XEN_PVH
 extern int xen_pvh_create_contiguous_region(phys_addr_t pstart,
 					    unsigned int order,
 					    unsigned int address_bits,
