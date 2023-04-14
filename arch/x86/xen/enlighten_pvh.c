@@ -29,7 +29,6 @@
 bool __ro_after_init xen_pvh;
 EXPORT_SYMBOL_GPL(xen_pvh);
 
-#define MAX_CONTIG_ORDER 9 /* 2MB */
 static DEFINE_SPINLOCK(xen_reservation_lock);
 
 void __init xen_pvh_init(struct boot_params *boot_params)
@@ -123,15 +122,6 @@ int xen_pvh_create_contiguous_region(phys_addr_t pstart, unsigned int order,
 	int            success;
 	unsigned long vaddr, vstart = (unsigned long)phys_to_virt(pstart);
 
-	/*
-	 * Currently an auto-translated guest will not perform I/O, nor will
-	 * it require PAE page directories below 4GB. Therefore any calls to
-	 * this function are redundant and can be ignored.
-	 */
-
-	if (unlikely(order > MAX_CONTIG_ORDER))
-		return -ENOMEM;
-
 	in_frames = kmalloc_array(1UL << order,
 				  sizeof(unsigned long), GFP_KERNEL);
 	if (!in_frames)
@@ -164,9 +154,6 @@ void xen_pvh_destroy_contiguous_region(phys_addr_t pstart, unsigned int order)
 	unsigned long  flags;
 	int success;
 	unsigned long vaddr, vstart;
-
-	if (unlikely(order > MAX_CONTIG_ORDER))
-		return;
 
 	vstart = (unsigned long)phys_to_virt(pstart);
 	memset((void *) vstart, 0, PAGE_SIZE << order);
