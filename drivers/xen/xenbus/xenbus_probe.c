@@ -690,6 +690,9 @@ int xenbus_dev_resume(struct device *dev)
 	if (dev->driver == NULL)
 		return 0;
 	drv = to_xenbus_driver(dev->driver);
+	/* ACPI S3 case */
+	if (xdev->state == XenbusStateConnected)
+		return 0;
 	err = talk_to_otherend(xdev);
 	if (err) {
 		dev_warn(dev, "resume (talk_to_otherend) failed: %i\n", err);
