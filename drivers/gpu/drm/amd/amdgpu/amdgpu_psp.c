@@ -2673,6 +2673,9 @@ static int psp_suspend(void *handle)
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 	struct psp_context *psp = &adev->psp;
 
+	if(!xen_initial_domain() && xen_hvm_domain())
+		return 0;
+
 	if (adev->gmc.xgmi.num_physical_nodes > 1 &&
 	    psp->xgmi_context.context.initialized) {
 		ret = psp_xgmi_terminate(psp);
@@ -2736,6 +2739,9 @@ static int psp_resume(void *handle)
 	int ret;
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 	struct psp_context *psp = &adev->psp;
+
+	if(!xen_initial_domain() && xen_hvm_domain())
+		return 0;
 
 	DRM_INFO("PSP is resuming...\n");
 

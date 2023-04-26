@@ -2908,6 +2908,11 @@ static void amdgpu_device_delayed_init_work_handler(struct work_struct *work)
 		container_of(work, struct amdgpu_device, delayed_init_work.work);
 	int r;
 
+	if (adev->gfx.gfx_off_req_count == 0)
+		cancel_delayed_work_sync(&adev->gfx.gfx_off_delay_work);
+
+	adev->gfx.gfx_off_req_count++;
+
 	r = amdgpu_ib_ring_tests(adev);
 	if (r)
 		DRM_ERROR("ib ring test failed (%d).\n", r);

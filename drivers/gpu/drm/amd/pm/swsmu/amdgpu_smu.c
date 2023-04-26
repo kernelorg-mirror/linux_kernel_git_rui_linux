@@ -1604,6 +1604,9 @@ static int smu_suspend(void *handle)
 	int ret;
 	uint64_t count;
 
+	if(!xen_initial_domain() && xen_hvm_domain())
+		return 0;
+
 	if (amdgpu_sriov_vf(adev)&& !amdgpu_sriov_is_pp_one_vf(adev))
 		return 0;
 
@@ -1636,6 +1639,9 @@ static int smu_resume(void *handle)
 	int ret;
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 	struct smu_context *smu = adev->powerplay.pp_handle;
+
+	if(!xen_initial_domain() && xen_hvm_domain())
+		return 0;
 
 	if (amdgpu_sriov_vf(adev)&& !amdgpu_sriov_is_pp_one_vf(adev))
 		return 0;
