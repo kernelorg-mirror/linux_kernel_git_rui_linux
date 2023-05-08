@@ -635,10 +635,10 @@ static int virtio_gpu_transfer_from_host_ioctl(struct drm_device *dev,
 		goto err_put_free;
 	}
 
-	if (!bo->host3d_blob && (args->stride || args->layer_stride)) {
+	/*if (!bo->host3d_blob && (args->stride || args->layer_stride)) {
 		ret = -EINVAL;
 		goto err_put_free;
-	}
+	}*/
 
 	ret = virtio_gpu_array_lock_resv(objs);
 	if (ret != 0)
@@ -694,10 +694,10 @@ static int virtio_gpu_transfer_to_host_ioctl(struct drm_device *dev, void *data,
 	} else {
 		virtio_gpu_create_context(dev, file);
 
-		if (!bo->host3d_blob && (args->stride || args->layer_stride)) {
+		/*if (!bo->host3d_blob && (args->stride || args->layer_stride)) {
 			ret = -EINVAL;
 			goto err_put_free;
-		}
+		}*/
 
 		ret = virtio_gpu_array_lock_resv(objs);
 		if (ret != 0)
