@@ -3840,6 +3840,10 @@ static void sienna_cichlid_i2c_control_fini(struct smu_context *smu)
 	struct amdgpu_device *adev = smu->adev;
 	int i;
 
+	/* Avoids registers access if device is physically gone */
+	if (!pci_device_is_present(adev->pdev))
+		return;
+
 	for (i = 0; i < MAX_SMU_I2C_BUSES; i++) {
 		struct amdgpu_smu_i2c_bus *smu_i2c = &adev->pm.smu_i2c[i];
 		struct i2c_adapter *control = &smu_i2c->adapter;
