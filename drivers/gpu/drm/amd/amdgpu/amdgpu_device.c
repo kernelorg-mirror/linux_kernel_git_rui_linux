@@ -80,6 +80,7 @@
 #include <linux/pm_runtime.h>
 
 #include <drm/drm_drv.h>
+#include <xen/xen.h>
 
 #if IS_ENABLED(CONFIG_X86)
 #include <asm/intel-family.h>
@@ -1324,6 +1325,11 @@ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
 	unsigned i;
 	u16 cmd;
 	int r;
+
+	/* Bypass for PVH dom0 which doesn't support resizable bar */
+	if (xen_initial_domain() && xen_pvh_domain()) {
+		return 0;
+	}
 
 	/* Bypass for VF */
 	if (amdgpu_sriov_vf(adev))
