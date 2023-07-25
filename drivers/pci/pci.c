@@ -32,6 +32,7 @@
 #include <asm/dma.h>
 #include <linux/aer.h>
 #include <linux/bitfield.h>
+#include <xen/xen.h>
 #include "pci.h"
 
 DEFINE_MUTEX(pci_slot_mutex);
@@ -1764,6 +1765,14 @@ static void pci_restore_rebar_state(struct pci_dev *pdev)
 {
 	unsigned int pos, nbars, i;
 	u32 ctrl;
+
+	/*
+	 * PVH dom0 doesn't support resizable bar capability,
+	 * we don't need to restore rebar on PVH dom0.
+	 */
+	if (xen_initial_domain() && xen_pvh_domain()) {
+		return;
+	}
 
 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_REBAR);
 	if (!pos)
