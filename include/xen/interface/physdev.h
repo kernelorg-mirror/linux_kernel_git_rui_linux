@@ -154,6 +154,8 @@ struct physdev_manage_pci {
 	uint8_t devfn;
 };
 
+#define PHYSDEVOP_manage_pci_reset	18
+
 #define PHYSDEVOP_restore_msi            19
 struct physdev_restore_msi {
 	/* IN */
@@ -262,6 +264,8 @@ struct physdev_pci_device {
     uint8_t bus;
     uint8_t devfn;
 };
+
+#define PHYSDEVOP_pci_device_reset     32
 
 #define PHYSDEVOP_DBGP_RESET_PREPARE    1
 #define PHYSDEVOP_DBGP_RESET_DONE       2
