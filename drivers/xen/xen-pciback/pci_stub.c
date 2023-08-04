@@ -20,6 +20,7 @@
 #include <linux/atomic.h>
 #include <xen/events.h>
 #include <xen/pci.h>
+#include <xen/acpi.h>
 #include <xen/xen.h>
 #include <asm/xen/hypervisor.h>
 #include <xen/interface/physdev.h>
@@ -398,6 +399,12 @@ static int pcistub_init_device(struct pci_dev *dev)
 	err = pci_enable_device(dev);
 	if (err)
 		goto config_release;
+
+	if (xen_initial_domain() && xen_pvh_domain()) {
+		err = xen_pvh_passthrough_gsi(dev);
+		if (err)
+			goto config_release;
+	}
 
 	if (dev->msix_cap) {
 		struct physdev_pci_device ppdev = {
