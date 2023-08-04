@@ -67,8 +67,12 @@ static inline void xen_acpi_sleep_register(void)
 		acpi_suspend_lowlevel = xen_acpi_suspend_lowlevel;
 	}
 }
+int xen_pvh_passthrough_gsi(struct pci_dev *dev);
 #else
 static inline void xen_acpi_sleep_register(void)
+{
+}
+static inline int xen_pvh_passthrough_gsi(struct pci_dev *dev)
 {
 }
 #endif
