@@ -92,6 +92,27 @@ static int xen_pvh_map_pirq(gsi_info_t *gsi_info)
 	return ret;
 }
 
+static int xen_pvh_unmap_pirq(gsi_info_t *gsi_info)
+{
+	struct physdev_unmap_pirq unmap_irq;
+
+	unmap_irq.domid = DOMID_SELF;
+	unmap_irq.pirq = gsi_info->pirq;
+
+	return HYPERVISOR_physdev_op(PHYSDEVOP_unmap_pirq, &unmap_irq);
+}
+
+static int xen_pvh_setup_gsi(gsi_info_t *gsi_info)
+{
+	struct physdev_setup_gsi setup_gsi;
+
+	setup_gsi.gsi = gsi_info->gsi;
+	setup_gsi.triggering = (gsi_info->trigger == ACPI_EDGE_SENSITIVE ? 0 : 1);
+	setup_gsi.polarity = (gsi_info->polarity == ACPI_ACTIVE_HIGH ? 0 : 1);
+
+	return HYPERVISOR_physdev_op(PHYSDEVOP_setup_gsi, &setup_gsi);
+}
+
 int xen_pvh_passthrough_gsi(struct pci_dev *dev)
 {
 	int ret;
@@ -108,8 +129,19 @@ int xen_pvh_passthrough_gsi(struct pci_dev *dev)
 	}
 
 	ret = xen_pvh_map_pirq(&gsi_info);
-	if (ret)
+	if (ret) {
 		xen_raw_printk("Fail to map pirq for gsi (%d)!\n", gsi_info.gsi);
+		return ret;
+	}
+
+	ret = xen_pvh_setup_gsi(&gsi_info);
+	if (ret == -EEXIST) {
+		ret = 0;
+		xen_raw_printk("Already setup the GSI :%u\n", gsi_info.gsi);
+	} else if (ret) {
+		xen_raw_printk("Fail to setup gsi (%d)!\n", gsi_info.gsi);
+		xen_pvh_unmap_pirq(&gsi_info);
+	}
 
 	return ret;
 }
